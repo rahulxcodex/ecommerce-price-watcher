@@ -126,8 +126,44 @@ async function runBrowserE2ETests() {
       failed++;
     }
 
-    // 3d. Unsupported E-Commerce Platform Handling
-    await page.fill('input[type="url"]', 'https://www.myntra.com/tshirts/roadster/123');
+    // 3d. Myntra Platform Detection
+    await page.fill('input[type="url"]', 'https://www.myntra.com/tshirts/roadster/2297873/buy');
+    await page.waitForTimeout(400);
+    const badgeTextMyntra = await page.textContent('body');
+    if (badgeTextMyntra?.toLowerCase().includes('myntra')) {
+      console.log('  ✅ [PASS] Real-time platform detection: Myntra recognized');
+      passed++;
+    } else {
+      console.error('  ❌ [FAIL] Myntra badge not detected');
+      failed++;
+    }
+
+    // 3e. Ajio Platform Detection
+    await page.fill('input[type="url"]', 'https://www.ajio.com/gap-men-tshirt/p/441123_blue');
+    await page.waitForTimeout(400);
+    const badgeTextAjio = await page.textContent('body');
+    if (badgeTextAjio?.toLowerCase().includes('ajio')) {
+      console.log('  ✅ [PASS] Real-time platform detection: Ajio recognized');
+      passed++;
+    } else {
+      console.error('  ❌ [FAIL] Ajio badge not detected');
+      failed++;
+    }
+
+    // 3f. Westside Platform Detection
+    await page.fill('input[type="url"]', 'https://www.westside.com/products/eta-shirt-123');
+    await page.waitForTimeout(400);
+    const badgeTextWestside = await page.textContent('body');
+    if (badgeTextWestside?.toLowerCase().includes('westside')) {
+      console.log('  ✅ [PASS] Real-time platform detection: Westside recognized');
+      passed++;
+    } else {
+      console.error('  ❌ [FAIL] Westside badge not detected');
+      failed++;
+    }
+
+    // 3g. Unsupported E-Commerce Platform Handling (Tata CLiQ)
+    await page.fill('input[type="url"]', 'https://www.tatacliq.com/apple-iphone-15/p-mp00000001');
     await page.click('button[type="submit"]');
     await page.waitForTimeout(800);
     const errorText = await page.textContent('body');
