@@ -22,6 +22,15 @@ const ALLOWED_DOMAINS: Record<Platform, RegExp[]> = {
   meesho: [
     /^(www\.)?meesho\.com$/i,
   ],
+  myntra: [
+    /^(www\.)?myntra\.com$/i,
+  ],
+  ajio: [
+    /^(www\.)?ajio\.com$/i,
+  ],
+  westside: [
+    /^(www\.)?westside\.com$/i,
+  ],
 };
 
 // Forbidden IP/host patterns (SSRF targets)
@@ -102,7 +111,7 @@ export function validateAndSanitizeUrl(rawUrl: string): ValidatedURL {
   if (!matchedPlatform) {
     return {
       valid: false,
-      error: 'Unsupported platform. Only Amazon India, Flipkart, and Meesho URLs are supported.',
+      error: 'Unsupported platform. Only Amazon, Flipkart, Meesho, Myntra, Ajio, and Westside URLs are supported.',
     };
   }
 

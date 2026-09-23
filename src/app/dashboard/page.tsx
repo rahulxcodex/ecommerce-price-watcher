@@ -77,7 +77,7 @@ export default function DashboardPage() {
             Tracked Products
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Tracking {products.length} items across Amazon, Flipkart, and Meesho
+            Tracking {products.length} items across Amazon, Flipkart, Meesho, Myntra, Ajio, and Westside
           </p>
         </div>
 
@@ -117,7 +117,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center gap-2">
           {/* Platform toggle */}
           <div className="inline-flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
-            {(['all', 'amazon', 'flipkart', 'meesho'] as const).map((plat) => (
+            {(['all', 'amazon', 'flipkart', 'meesho', 'myntra', 'ajio', 'westside'] as const).map((plat) => (
               <button
                 key={plat}
                 onClick={() => setSelectedPlatform(plat)}

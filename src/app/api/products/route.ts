@@ -4,6 +4,9 @@ import { validateAndSanitizeUrl, validateScrapedPrice } from '@/lib/security';
 import { scrapeAmazon } from '@scripts/scrapers/amazon';
 import { scrapeFlipkart } from '@scripts/scrapers/flipkart';
 import { scrapeMeesho } from '@scripts/scrapers/meesho';
+import { scrapeMyntra } from '@scripts/scrapers/myntra';
+import { scrapeAjio } from '@scripts/scrapers/ajio';
+import { scrapeWestside } from '@scripts/scrapers/westside';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +87,12 @@ export async function POST(req: NextRequest) {
       scrapeRes = await scrapeFlipkart(cleanUrl);
     } else if (platform === 'meesho') {
       scrapeRes = await scrapeMeesho(cleanUrl);
+    } else if (platform === 'myntra') {
+      scrapeRes = await scrapeMyntra(cleanUrl);
+    } else if (platform === 'ajio') {
+      scrapeRes = await scrapeAjio(cleanUrl);
+    } else if (platform === 'westside') {
+      scrapeRes = await scrapeWestside(cleanUrl);
     }
 
     if (!scrapeRes || !scrapeRes.success || !scrapeRes.price) {

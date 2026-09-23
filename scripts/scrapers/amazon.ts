@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { getDefaultHeaders, parsePrice } from './utils';
 import { ScrapeResult } from '../../src/types';
+import { extractJsonLdProduct, extractMetaTags } from './resilient-extractor';
 
 export async function scrapeAmazon(url: string): Promise<ScrapeResult> {
   try {
@@ -66,6 +67,22 @@ export async function scrapeAmazon(url: string): Promise<ScrapeResult> {
       $('#imgBlkFront').attr('src') ||
       $('img#main-image').attr('src') ||
       undefined;
+
+    if (!price) {
+      const jsonLd = extractJsonLdProduct($);
+      if (jsonLd && jsonLd.price) {
+        price = jsonLd.price;
+        if (!imageUrl) imageUrl = jsonLd.imageUrl;
+      }
+    }
+
+    if (!price) {
+      const meta = extractMetaTags($);
+      if (meta.price) {
+        price = meta.price;
+        if (!imageUrl) imageUrl = meta.imageUrl;
+      }
+    }
 
     if (!price && !isOutOfStock) {
       return {

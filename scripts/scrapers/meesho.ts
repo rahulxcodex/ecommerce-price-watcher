@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { getDefaultHeaders, parsePrice } from './utils';
 import { ScrapeResult } from '../../src/types';
+import { extractJsonLdProduct, extractMetaTags } from './resilient-extractor';
 
 export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
   // Strategy 1: Fast HTTP + Preloaded JSON / Next Data inspection
@@ -74,6 +75,20 @@ export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
           }
         }
       });
+
+      if (!domPrice) {
+        const jsonLd = extractJsonLdProduct($);
+        if (jsonLd && jsonLd.price) {
+          domPrice = jsonLd.price;
+        }
+      }
+
+      if (!domPrice) {
+        const meta = extractMetaTags($);
+        if (meta.price) {
+          domPrice = meta.price;
+        }
+      }
 
       if (domPrice) {
         return {

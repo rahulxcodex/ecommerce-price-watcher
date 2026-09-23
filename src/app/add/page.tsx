@@ -34,6 +34,12 @@ function AddProductForm() {
       setDetectedPlatform('flipkart');
     } else if (trimmed.includes('meesho.com')) {
       setDetectedPlatform('meesho');
+    } else if (trimmed.includes('myntra.com')) {
+      setDetectedPlatform('myntra');
+    } else if (trimmed.includes('ajio.com')) {
+      setDetectedPlatform('ajio');
+    } else if (trimmed.includes('westside.com')) {
+      setDetectedPlatform('westside');
     } else {
       setDetectedPlatform(null);
     }
@@ -97,7 +103,7 @@ function AddProductForm() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-100">Track New Product</h1>
-            <p className="text-xs text-slate-400">Add any Amazon, Flipkart, or Meesho item link</p>
+            <p className="text-xs text-slate-400">Add any Amazon, Flipkart, Meesho, Myntra, Ajio, or Westside item link</p>
           </div>
         </div>
 
@@ -140,7 +146,7 @@ function AddProductForm() {
               type="url"
               value={url}
               onChange={handleUrlChange}
-              placeholder="https://www.amazon.in/dp/... or https://www.flipkart.com/... or Meesho link"
+              placeholder="Paste product link (Amazon, Flipkart, Meesho, Myntra, Ajio, Westside)..."
               required
               disabled={isLoading}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 transition-colors"

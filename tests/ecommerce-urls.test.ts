@@ -96,17 +96,55 @@ const testCases: TestCase[] = [
     forbiddenInClean: ['utm_source=', 'utm_campaign=', 'fbclid='],
   },
 
-  // Unsupported E-Commerce Platforms (must be rejected gracefully)
+  // Myntra
   {
-    name: 'Unsupported: Myntra URL',
+    name: 'Myntra Standard Product URL',
     url: 'https://www.myntra.com/tshirts/roadster/roadster-men-navy-printed-round-neck-t-shirt/2297873/buy',
-    expectedValid: false,
+    expectedValid: true,
+    expectedPlatform: 'myntra',
+    expectedCleanSubstring: 'myntra.com/tshirts/roadster/roadster-men-navy-printed-round-neck-t-shirt/2297873/buy',
   },
   {
-    name: 'Unsupported: Ajio URL',
-    url: 'https://www.ajio.com/gap-men-logo-crew-neck-t-shirt/p/441123456_blue',
-    expectedValid: false,
+    name: 'Myntra with UTM and Referral Params',
+    url: 'https://www.myntra.com/shoes/nike/nike-air-max/12345/buy?utm_source=perf_google&utm_medium=cpc&gclid=CjwKCAjw',
+    expectedValid: true,
+    expectedPlatform: 'myntra',
+    forbiddenInClean: ['utm_source=', 'utm_medium=', 'gclid='],
   },
+
+  // Ajio
+  {
+    name: 'Ajio Standard Product URL',
+    url: 'https://www.ajio.com/gap-men-logo-crew-neck-t-shirt/p/441123456_blue',
+    expectedValid: true,
+    expectedPlatform: 'ajio',
+    expectedCleanSubstring: 'ajio.com/gap-men-logo-crew-neck-t-shirt/p/441123456_blue',
+  },
+  {
+    name: 'Ajio with UTM and Campaign Params',
+    url: 'https://www.ajio.com/p/441123456_blue?utm_source=facebook&utm_campaign=mega_sale&fbclid=IwAR098',
+    expectedValid: true,
+    expectedPlatform: 'ajio',
+    forbiddenInClean: ['utm_source=', 'utm_campaign=', 'fbclid='],
+  },
+
+  // Westside
+  {
+    name: 'Westside Standard Product URL',
+    url: 'https://www.westside.com/products/eta-sage-slim-fit-shirt-300958742',
+    expectedValid: true,
+    expectedPlatform: 'westside',
+    expectedCleanSubstring: 'westside.com/products/eta-sage-slim-fit-shirt-300958742',
+  },
+  {
+    name: 'Westside with Tracking and Referral Params',
+    url: 'https://www.westside.com/products/eta-sage-slim-fit-shirt-300958742?utm_source=instagram&utm_medium=stories&gclid=123xyz',
+    expectedValid: true,
+    expectedPlatform: 'westside',
+    forbiddenInClean: ['utm_source=', 'utm_medium=', 'gclid='],
+  },
+
+  // Unsupported E-Commerce Platforms (must be rejected gracefully)
   {
     name: 'Unsupported: Tata CLiQ URL',
     url: 'https://www.tatacliq.com/apple-iphone-15-128gb-blue/p-mp000000018899834',

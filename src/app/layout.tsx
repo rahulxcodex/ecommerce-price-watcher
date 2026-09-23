@@ -4,7 +4,7 @@ import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 
 export const metadata: Metadata = {
-  title: 'PriceWatcher - E-Commerce Price Tracker for Amazon, Flipkart & Meesho',
+  title: 'PriceWatcher - Multi-Store Price Tracker (Amazon, Flipkart, Meesho, Myntra, Ajio, Westside)',
   description:
     'Paste any product link and get notified the moment it hits its all-time lowest price. 100% free with automated GitHub Actions and Telegram alerts.',
 };

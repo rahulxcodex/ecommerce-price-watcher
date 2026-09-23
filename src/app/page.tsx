@@ -32,7 +32,7 @@ export default function HomePage() {
       <section className="relative text-center max-w-4xl mx-auto space-y-6 pt-8">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>100% Free • Amazon • Flipkart • Meesho</span>
+          <span>100% Free • Amazon • Flipkart • Meesho • Myntra • Ajio • Westside</span>
         </div>
 
         <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-100">
@@ -44,7 +44,7 @@ export default function HomePage() {
         </h1>
 
         <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          Stop constantly refreshing product pages. Paste a link from Amazon, Flipkart, or Meesho.
+          Stop constantly refreshing product pages. Paste a link from Amazon, Flipkart, Meesho, Myntra, Ajio, or Westside.
           Our automated GitHub Actions tracker checks prices 4× daily and pings your Telegram immediately when prices drop.
         </p>
 
@@ -57,7 +57,7 @@ export default function HomePage() {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="Paste product link (Amazon, Flipkart, Meesho)..."
+            placeholder="Paste product link (Amazon, Flipkart, Meesho, Myntra, Ajio, Westside)..."
             required
             className="w-full bg-transparent px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
           />
@@ -71,11 +71,14 @@ export default function HomePage() {
         </form>
 
         {/* Supported Platforms Strip */}
-        <div className="flex items-center justify-center gap-3 pt-3">
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
           <span className="text-xs text-slate-500">Supported:</span>
           <PlatformBadge platform="amazon" />
           <PlatformBadge platform="flipkart" />
           <PlatformBadge platform="meesho" />
+          <PlatformBadge platform="myntra" />
+          <PlatformBadge platform="ajio" />
+          <PlatformBadge platform="westside" />
         </div>
       </section>
 
@@ -93,7 +96,7 @@ export default function HomePage() {
             </div>
             <h3 className="font-semibold text-slate-200 text-base mb-2">Paste Product Link</h3>
             <p className="text-slate-400 text-xs leading-relaxed">
-              Drop any item link from Amazon India, Flipkart, or Meesho. We automatically fetch the current price, title, and initial snapshot.
+              Drop any item link from Amazon, Flipkart, Meesho, Myntra, Ajio, or Westside. We automatically fetch the current price, title, and initial snapshot.
             </p>
           </div>
 

@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { getDefaultHeaders, parsePrice } from './utils';
 import { ScrapeResult } from '../../src/types';
+import { extractMetaTags } from './resilient-extractor';
 
 export async function scrapeFlipkart(url: string): Promise<ScrapeResult> {
   // Strategy 1: Fast HTTP + Cheerio + JSON-LD
@@ -69,6 +70,13 @@ export async function scrapeFlipkart(url: string): Promise<ScrapeResult> {
               break;
             }
           }
+        }
+      }
+
+      if (!domPrice) {
+        const meta = extractMetaTags($);
+        if (meta.price) {
+          domPrice = meta.price;
         }
       }
 

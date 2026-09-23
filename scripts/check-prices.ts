@@ -2,6 +2,9 @@ import { getServiceSupabase } from '@/lib/supabase';
 import { scrapeAmazon } from './scrapers/amazon';
 import { scrapeFlipkart } from './scrapers/flipkart';
 import { scrapeMeesho } from './scrapers/meesho';
+import { scrapeMyntra } from './scrapers/myntra';
+import { scrapeAjio } from './scrapers/ajio';
+import { scrapeWestside } from './scrapers/westside';
 import { delay } from './scrapers/utils';
 import { sendTelegramAlert } from './notify';
 import { validateScrapedPrice } from '@/lib/security';
@@ -66,6 +69,12 @@ async function main() {
         scrapeRes = await scrapeFlipkart(product.url);
       } else if (product.platform === 'meesho') {
         scrapeRes = await scrapeMeesho(product.url);
+      } else if (product.platform === 'myntra') {
+        scrapeRes = await scrapeMyntra(product.url);
+      } else if (product.platform === 'ajio') {
+        scrapeRes = await scrapeAjio(product.url);
+      } else if (product.platform === 'westside') {
+        scrapeRes = await scrapeWestside(product.url);
       } else {
         console.warn(`Unsupported platform ${product.platform}`);
         continue;

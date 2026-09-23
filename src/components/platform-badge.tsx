@@ -22,6 +22,21 @@ export function PlatformBadge({ platform, className = '' }: PlatformBadgeProps) 
       bg: 'bg-pink-500/10 text-pink-400 border-pink-500/30',
       dot: 'bg-pink-400',
     },
+    myntra: {
+      label: 'Myntra',
+      bg: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+      dot: 'bg-rose-400',
+    },
+    ajio: {
+      label: 'Ajio',
+      bg: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+      dot: 'bg-indigo-400',
+    },
+    westside: {
+      label: 'Westside',
+      bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+      dot: 'bg-emerald-400',
+    },
   };
 
   const config = configs[platform] || {

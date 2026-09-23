@@ -1,6 +1,6 @@
 # 🏷️ E-Commerce Price Watcher
 
-An automated, multi-platform product price tracking web application for **Amazon India**, **Flipkart**, and **Meesho**. Paste any product link, view price trends over time, and receive instant Telegram alerts whenever an item hits its **all-time lowest price**.
+An automated, multi-platform product price tracking web application for **Amazon India**, **Flipkart**, **Meesho**, **Myntra**, **Ajio**, and **Westside**. Paste any product link, view price trends over time, and receive instant Telegram alerts whenever an item hits its **all-time lowest price**.
 
 Deployed **100% free** on Vercel, Supabase, GitHub Actions, and Telegram Bot API.
 
@@ -16,7 +16,7 @@ Deployed **100% free** on Vercel, Supabase, GitHub Actions, and Telegram Bot API
          ▲
          │
 [ GitHub Actions Cron ] (Runs every 6 hours on free Linux runners)
-         │  Scrapes Amazon, Flipkart, Meesho
+         │  Scrapes Amazon, Flipkart, Meesho, Myntra, Ajio, Westside
          ▼
 [ Telegram Bot Alerts ] (100% Free, Unlimited Instant Push Notifications)
 ```
@@ -26,7 +26,7 @@ Deployed **100% free** on Vercel, Supabase, GitHub Actions, and Telegram Bot API
 ## 🔒 Built-in Security Architecture
 
 1. **SSRF (Server-Side Request Forgery) Defense**:
-   - Strict hostname regex whitelisting (`amazon.in`, `flipkart.com`, `meesho.com`).
+   - Strict hostname regex whitelisting (`amazon.in`, `flipkart.com`, `meesho.com`, `myntra.com`, `ajio.com`, `westside.com`).
    - Rejection of private IPv4/IPv6 ranges (RFC 1918, RFC 3927), localhost, loopback (`127.0.0.1`), and cloud metadata IP endpoints (`169.254.169.254`).
    - Automatic stripping of affiliate and tracking parameters.
 
@@ -51,7 +51,7 @@ Deployed **100% free** on Vercel, Supabase, GitHub Actions, and Telegram Bot API
 - **Framework**: Next.js 14 (App Router)
 - **Styling**: Tailwind CSS with dark slate theme
 - **Database**: Supabase PostgreSQL with Row Level Security
-- **Scraper Engine**: Cheerio (Amazon SSR) + Playwright (Flipkart / Meesho CSR fallback)
+- **Scraper Engine**: 5-Tier Resilient Architecture (JSON-LD Schema.org + Platform Native APIs/Hydration State + OpenGraph Meta Tags + Multi-Selector Fallback + Headless Playwright Chromium)
 - **Automation**: GitHub Actions Cron (`0 */6 * * *`)
 - **Notifications**: Telegram Bot API
 - **Charts**: Recharts responsive SVG line charts
