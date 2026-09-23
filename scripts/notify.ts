@@ -74,3 +74,49 @@ export async function sendTelegramAlert(data: PriceDropNotification): Promise<{ 
     return { success: false, error: errMsg };
   }
 }
+
+/**
+ * Sends price drop alert via Google Apps Script Email API
+ */
+export async function sendEmailAlert(data: {
+  to: string;
+  productTitle: string;
+  productUrl: string;
+  previousPrice: number;
+  newPrice: number;
+  lowestPrice?: number;
+  currency?: string;
+  isAllTimeLow?: boolean;
+  imageUrl?: string;
+  platform?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const apiUrl = process.env.APPSCRIPT_EMAIL_URL;
+  if (!apiUrl) {
+    return { success: false, error: 'APPSCRIPT_EMAIL_URL is not configured.' };
+  }
+
+  try {
+    const apiKey = process.env.APPSCRIPT_API_KEY;
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'price_drop',
+        apiKey,
+        ...data,
+      }),
+      redirect: 'follow',
+    });
+
+    const result = await res.json();
+    if (!result.success) {
+      return { success: false, error: result.error || 'Apps Script dispatch failed' };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errMsg };
+  }
+}
+
