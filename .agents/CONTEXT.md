@@ -33,5 +33,12 @@ Ecommerce Price Watcher (Amazon, Flipkart, Meesho)
 - `.github/workflows/price-check.yml` — 6-hour cron action
 - `src/app/` — Dashboard, Add Product, Product Detail (Chart), Settings, API routes
 - `tests/security-and-utils.test.ts` — Security test suite (all passed)
+- `tests/ecommerce-urls.test.ts` — 17/17 multi-platform URL tests passed
+- `tests/red-hat-security.test.ts` — 33/33 adversarial security tests passed
+- `tests/browser-e2e.test.ts` — 8/8 Playwright headless browser E2E tests passed
 - `docs/telegram-setup.md` — 60-second Telegram bot setup guide
 - `vercel.json` — Deployment region config
+
+## Deployments
+- **GitHub**: [rahulxcodex/ecommerce-price-watcher](https://github.com/rahulxcodex/ecommerce-price-watcher)
+- **Vercel Production**: [ecommerce-price-watcher-puce.vercel.app](https://ecommerce-price-watcher-puce.vercel.app) (Region: `bom1`, Status: `READY`, 0 errors)
