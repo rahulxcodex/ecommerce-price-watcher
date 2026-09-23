@@ -36,9 +36,13 @@ Ecommerce Price Watcher (Amazon, Flipkart, Meesho)
 - `tests/ecommerce-urls.test.ts` — 17/17 multi-platform URL tests passed
 - `tests/red-hat-security.test.ts` — 33/33 adversarial security tests passed
 - `tests/browser-e2e.test.ts` — 8/8 Playwright headless browser E2E tests passed
+- `tests/appscript-email.test.ts` — Apps Script payload & client tests passed
+- `docs/appscript-email-setup.md` — 60-second Apps Script email setup guide
 - `docs/telegram-setup.md` — 60-second Telegram bot setup guide
 - `vercel.json` — Deployment region config
+- `supabase/migrations/002_allow_anonymous_products.sql` — Anonymous product tracking schema fix
 
 ## Deployments
 - **GitHub**: [rahulxcodex/ecommerce-price-watcher](https://github.com/rahulxcodex/ecommerce-price-watcher)
 - **Vercel Production**: [ecommerce-price-watcher-puce.vercel.app](https://ecommerce-price-watcher-puce.vercel.app) (Region: `bom1`, Status: `READY`, 0 errors)
+- **Google Apps Script Web App**: `https://script.google.com/macros/s/AKfycbzTDNDaK0ePs8gco-LMnZin2Aw8PYB_UQumhquVb8f90uKHN_ylQ_6UobJJEBkxzL342Q/exec` (Status: `active`, Quota: 98 remaining)
