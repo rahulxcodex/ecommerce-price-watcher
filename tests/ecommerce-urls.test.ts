@@ -13,11 +13,18 @@ interface TestCase {
 const testCases: TestCase[] = [
   // Amazon India
   {
-    name: 'Amazon India Standard Product URL',
+    name: 'Amazon India Standard Product URL (Canonicalized to /dp/ASIN)',
     url: 'https://www.amazon.in/Apple-iPhone-15-128-GB/dp/B0CHX1W1XY',
     expectedValid: true,
     expectedPlatform: 'amazon',
-    expectedCleanSubstring: 'amazon.in/Apple-iPhone-15-128-GB/dp/B0CHX1W1XY',
+    expectedCleanSubstring: 'amazon.in/dp/B0CHX1W1XY',
+  },
+  {
+    name: 'Amazon India Mobile URL (/gp/aw/d/ASIN)',
+    url: 'https://www.amazon.in/gp/aw/d/B0C2RZYDQN/?ie=UTF8',
+    expectedValid: true,
+    expectedPlatform: 'amazon',
+    expectedCleanSubstring: 'amazon.in/dp/B0C2RZYDQN',
   },
   {
     name: 'Amazon India with Tracking, Affiliate and Session Params',

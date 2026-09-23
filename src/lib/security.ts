@@ -124,15 +124,30 @@ export function validateAndSanitizeUrl(rawUrl: string): ValidatedURL {
     'affExtParam1',
     'fbclid',
     'gclid',
+    'ie',
+    'qid',
+    'sr',
+    'keywords',
   ];
 
   trackingParams.forEach((param) => {
     parsed.searchParams.delete(param);
   });
 
+  let cleanUrl = parsed.toString();
+
+  // Canonicalize Amazon mobile and deep links (e.g. /gp/aw/d/ASIN -> /dp/ASIN)
+  if (matchedPlatform === 'amazon') {
+    const asinMatch = parsed.pathname.match(/(?:\/dp\/|\/gp\/aw\/d\/|\/gp\/product\/|\/d\/)([A-Z0-9]{10})/i);
+    if (asinMatch && asinMatch[1]) {
+      const asin = asinMatch[1].toUpperCase();
+      cleanUrl = `https://${hostname}/dp/${asin}`;
+    }
+  }
+
   return {
     valid: true,
-    cleanUrl: parsed.toString(),
+    cleanUrl,
     platform: matchedPlatform,
   };
 }

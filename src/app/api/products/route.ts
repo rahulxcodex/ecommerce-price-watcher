@@ -111,26 +111,40 @@ export async function POST(req: NextRequest) {
     const imageUrl = scrapeRes.imageUrl || null;
 
     // 5. Insert new product
+    const insertPayload: Record<string, unknown> = {
+      url: cleanUrl,
+      platform,
+      title,
+      image_url: imageUrl,
+      current_price: price,
+      lowest_price: price,
+      highest_price: price,
+      target_price: targetPrice ? Number(targetPrice) : null,
+      currency: 'INR',
+      is_active: true,
+      last_checked_at: new Date().toISOString(),
+    };
+
     const { data: product, error: insertError } = await db
       .from('products')
-      .insert({
-        user_id: defaultUserId,
-        url: cleanUrl,
-        platform,
-        title,
-        image_url: imageUrl,
-        current_price: price,
-        lowest_price: price,
-        highest_price: price,
-        target_price: targetPrice ? Number(targetPrice) : null,
-        currency: 'INR',
-        is_active: true,
-        last_checked_at: new Date().toISOString(),
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
     if (insertError) {
+      if (
+        insertError.message.includes('products_user_id_fkey') ||
+        insertError.message.includes('violates not-null constraint')
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Database Setup Notice: Please run the SQL in "supabase/migrations/002_allow_anonymous_products.sql" (or ALTER TABLE public.products ALTER COLUMN user_id DROP NOT NULL;) in your Supabase SQL Editor to enable public tracking.',
+            details: insertError.message,
+          },
+          { status: 500 }
+        );
+      }
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
