@@ -182,12 +182,7 @@ function LoginForm() {
   };
 
   const isSignupCombinedPreview =
-    signupName.toLowerCase().includes('rahul') ||
-    signupName.toLowerCase().includes('nisha') ||
-    signupName.toLowerCase().trim() === 'me' ||
-    signupEmail.toLowerCase().includes('rahul') ||
-    signupEmail.toLowerCase().includes('nisha') ||
-    signupEmail.toLowerCase().includes('rsahgupta');
+    signupEmail.trim().toLowerCase() === 'rahulr24g@gmail.com';
 
   return (
     <div className="max-w-md mx-auto py-6 sm:py-12 px-2">
@@ -330,7 +325,7 @@ function LoginForm() {
                   type="text"
                   value={signupName}
                   onChange={(e) => setSignupName(e.target.value)}
-                  placeholder="e.g. Rahul or Nishaa"
+                  placeholder="e.g. Rahul"
                   required
                   className="w-full bg-slate-950/70 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                 />

@@ -193,8 +193,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                   <span
                     className="text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                   >
-                    {product.created_by_name.toLowerCase().includes('rahul') ||
-                    product.created_by_name.toLowerCase().includes('nisha')
+                    {product.created_by_name.toLowerCase().includes('rahul')
                       ? 'Shared Space'
                       : 'Personal'}
                   </span>

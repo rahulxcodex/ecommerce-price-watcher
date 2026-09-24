@@ -77,12 +77,13 @@ function getDbClient() {
 }
 
 function toAuthUser(user: StoredUser): AuthUser {
+  const isCombined = isCombinedAccount(user.name, user.email);
   return {
     id: user.id,
     name: user.name,
     email: user.email,
-    isCombined: Boolean(user.is_combined),
-    role: user.role || (user.is_combined ? 'combined' : 'user'),
+    isCombined,
+    role: isCombined ? 'combined' : 'user',
     createdAt: user.created_at,
   };
 }
@@ -145,7 +146,21 @@ export async function authenticateByEmailAndPin(
     return { user: null, error: 'Incorrect PIN. Please try again.' };
   }
 
-  return { user: toAuthUser(userRecord) };
+  const authUser = toAuthUser(userRecord);
+  if (userRecord.is_combined !== authUser.isCombined) {
+    userRecord.is_combined = authUser.isCombined;
+    userRecord.role = authUser.role;
+    try {
+      await db
+        .from('app_users')
+        .update({ is_combined: authUser.isCombined, role: authUser.role })
+        .eq('id', userRecord.id);
+    } catch {
+      // ignore
+    }
+  }
+
+  return { user: authUser };
 }
 
 /**
@@ -322,24 +337,26 @@ export async function createUser(params: {
 }
 
 /**
- * Get all users that belong to the combined group (Rahul and Nishaa)
+ * Get all users that belong to the combined group (strictly rahulr24g@gmail.com)
  */
 export async function getCombinedUserIds(): Promise<string[]> {
   const db = getDbClient();
   try {
     const { data, error } = await db
       .from('app_users')
-      .select('id, name')
+      .select('id, name, email')
       .eq('is_combined', true);
 
     if (!error && data && data.length > 0) {
-      return data.map((u: { id: string }) => u.id);
+      return data
+        .filter((u: { id: string; name?: string; email?: string }) => isCombinedAccount(u.name, u.email))
+        .map((u: { id: string }) => u.id);
     }
   } catch {
     // ignore
   }
 
   return loadLocalUsers()
-    .filter((u) => u.is_combined)
+    .filter((u) => isCombinedAccount(u.name, u.email))
     .map((u) => u.id);
 }

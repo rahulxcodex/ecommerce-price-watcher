@@ -31,28 +31,17 @@ function getAuthSecret(): string {
   );
 }
 
+export const COMBINED_ACCESS_EMAIL = 'rahulr24g@gmail.com';
+
 /**
- * Determine if a user's name qualifies for special combined access (Rahul and Nishaa)
+ * Determine if a user qualifies for special combined access.
+ * Strictly restricted to email rahulr24g@gmail.com.
+ * No access is granted by name (even Rahul or Nisha), nor to any other email.
  */
-export function isCombinedAccount(name: string, email?: string): boolean {
-  if (email) {
-    const normEmail = email.trim().toLowerCase();
-    if (
-      normEmail.includes('rahul') ||
-      normEmail.includes('nisha') ||
-      normEmail.includes('rsahgupta')
-    ) {
-      return true;
-    }
-  }
-  if (!name) return false;
-  const normalized = name.trim().toLowerCase();
-  // Matches "Rahul", "Rahul Gupta", "Rahul Sah", "Nishaa", "Nisha", "Nishaa Gupta", etc.
-  return (
-    normalized.includes('rahul') ||
-    normalized.includes('nisha') ||
-    normalized === 'me'
-  );
+export function isCombinedAccount(nameOrEmail?: string, email?: string): boolean {
+  const candidateEmail = email || (nameOrEmail && nameOrEmail.includes('@') ? nameOrEmail : undefined);
+  if (!candidateEmail) return false;
+  return candidateEmail.trim().toLowerCase() === COMBINED_ACCESS_EMAIL;
 }
 
 /**
@@ -139,6 +128,11 @@ export function verifySessionToken(token: string): SessionPayload | null {
     if (payload.exp && payload.exp < now) {
       return null; // Expired
     }
+
+    // Enforce strict Combined Access authorization dynamically
+    const isCombined = isCombinedAccount(payload.name, payload.email);
+    payload.isCombined = isCombined;
+    payload.role = isCombined ? 'combined' : 'user';
 
     return payload;
   } catch {

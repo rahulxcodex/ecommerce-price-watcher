@@ -58,7 +58,12 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const isCurrentUserFirstPartner = Boolean(user?.name?.toLowerCase().includes('rahul'));
+  const isMineProduct = (p: Product) => {
+    if (user?.name && p.created_by_name) {
+      if (p.created_by_name.toLowerCase().trim() === user.name.toLowerCase().trim()) return true;
+    }
+    return Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
+  };
 
   // Filter & sort logic (memoized to avoid re-computation on unrelated re-renders)
   const filteredProducts = useMemo(() =>
@@ -66,17 +71,16 @@ export default function DashboardPage() {
       const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
       const matchesPlatform = selectedPlatform === 'all' || p.platform === selectedPlatform;
       const matchesLow = onlyAllTimeLow ? p.current_price <= p.lowest_price && p.lowest_price > 0 && p.highest_price > p.current_price : true;
-      const isFirstPartner = Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
-      const isSecondPartner = Boolean(p.created_by_name?.toLowerCase().includes('nisha'));
+      const isMine = isMineProduct(p);
       const matchesCreator =
         creatorFilter === 'all'
           ? true
           : creatorFilter === 'mine'
-          ? (isCurrentUserFirstPartner ? isFirstPartner : isSecondPartner)
-          : (isCurrentUserFirstPartner ? isSecondPartner : isFirstPartner);
+          ? isMine
+          : !isMine;
       return matchesSearch && matchesPlatform && matchesLow && matchesCreator;
     }),
-    [products, search, selectedPlatform, onlyAllTimeLow, creatorFilter, isCurrentUserFirstPartner]
+    [products, search, selectedPlatform, onlyAllTimeLow, creatorFilter, user]
   );
 
   const sortedProducts = useMemo(() =>
@@ -100,20 +104,12 @@ export default function DashboardPage() {
   );
 
   const myCount = useMemo(() => {
-    return products.filter((p) => {
-      const isFirst = Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
-      const isSecond = Boolean(p.created_by_name?.toLowerCase().includes('nisha'));
-      return isCurrentUserFirstPartner ? isFirst : isSecond;
-    }).length;
-  }, [products, isCurrentUserFirstPartner]);
+    return products.filter((p) => isMineProduct(p)).length;
+  }, [products, user]);
 
-  const partnerCount = useMemo(() => {
-    return products.filter((p) => {
-      const isFirst = Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
-      const isSecond = Boolean(p.created_by_name?.toLowerCase().includes('nisha'));
-      return isCurrentUserFirstPartner ? isSecond : isFirst;
-    }).length;
-  }, [products, isCurrentUserFirstPartner]);
+  const otherCount = useMemo(() => {
+    return products.filter((p) => !isMineProduct(p)).length;
+  }, [products, user]);
 
   const exportData = (format: 'csv' | 'json') => {
     if (products.length === 0) return;
@@ -244,7 +240,7 @@ export default function DashboardPage() {
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Partner ({partnerCount})
+              Others ({otherCount})
             </button>
           </div>
         </div>
