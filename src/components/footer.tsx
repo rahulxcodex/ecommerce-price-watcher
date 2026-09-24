@@ -1,32 +1,35 @@
 import Link from 'next/link';
-import { ShieldCheck, Heart, Github } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export function Footer() {
   return (
-    <footer className="mt-auto border-t border-slate-900 bg-slate-950/80 py-6 sm:py-8 text-xs text-slate-500">
+    <footer className="mt-auto border-t border-surface-border bg-obsidian py-6 text-xs text-champagne-faint">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
         <div className="flex items-center justify-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <span className="text-[11px] sm:text-xs">SSRF-Protected • 100% Free Tier</span>
+          <ShieldCheck className="w-3.5 h-3.5 text-gold flex-shrink-0" />
+          <span className="text-[11px] font-mono tracking-tight">SSRF Hardened • 4-Hour Cron • Multi-Store Architecture</span>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 py-1">
-          <Link href="/dashboard" className="hover:text-slate-300 py-1 transition-colors">
-            Dashboard
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 py-1 text-[11px]">
+          <Link href="/dashboard" className="hover:text-champagne transition-colors">
+            Watchlist
           </Link>
-          <Link href="/add" className="hover:text-slate-300 py-1 transition-colors">
-            Track Product
+          <Link href="/discover" className="hover:text-champagne transition-colors">
+            Discover
           </Link>
-          <Link href="/settings" className="hover:text-slate-300 py-1 transition-colors">
+          <Link href="/add" className="hover:text-champagne transition-colors">
+            Track URL
+          </Link>
+          <Link href="/settings" className="hover:text-champagne transition-colors">
             Alerts
           </Link>
-          <Link href="/extension" className="hover:text-slate-300 py-1 transition-colors">
+          <Link href="/extension" className="hover:text-champagne transition-colors">
             Extension
           </Link>
         </div>
 
-        <div className="flex items-center justify-center gap-1 text-[11px] sm:text-xs text-slate-600">
-          <span>GitHub Actions &amp; Supabase</span>
+        <div className="flex items-center justify-center gap-1 text-[11px] font-mono text-champagne-faint">
+          <span>Obsidian &amp; Champagne • v2.0</span>
         </div>
       </div>
     </footer>

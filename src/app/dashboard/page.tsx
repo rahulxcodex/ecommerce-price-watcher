@@ -5,19 +5,17 @@ import Link from 'next/link';
 import {
   PlusCircle,
   Search,
-  Filter,
   RefreshCw,
-  TrendingDown,
-  ShoppingBag,
-  AlertCircle,
-  Flame,
   Download,
   Crown,
   KeyRound,
-  Users,
   Zap,
   Clock,
   AlertTriangle,
+  Flame,
+  ShoppingBag,
+  AlertCircle,
+  Compass,
 } from 'lucide-react';
 import { Product, Platform } from '@/types';
 import { ProductCard } from '@/components/product-card';
@@ -72,7 +70,6 @@ export default function DashboardPage() {
     return Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
   };
 
-  // Filter & sort logic (memoized to avoid re-computation on unrelated re-renders)
   const filteredProducts = useMemo(() =>
     products.filter((p) => {
       const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
@@ -118,7 +115,7 @@ export default function DashboardPage() {
     return products.filter((p) => !isMineProduct(p)).length;
   }, [products, user]);
 
-  // Watchdog metric: time since last scrape across all products
+  // Watchdog metric: updated to 5.0h threshold for 4-hour cron schedule
   const latestScrapeTime = useMemo(() => {
     const timestamps = products
       .map((p) => (p.last_checked_at ? new Date(p.last_checked_at).getTime() : 0))
@@ -131,7 +128,7 @@ export default function DashboardPage() {
     return (Date.now() - latestScrapeTime) / (1000 * 60 * 60);
   }, [latestScrapeTime]);
 
-  const isScraperStale = Boolean(elapsedHours !== null && elapsedHours >= 3.0);
+  const isScraperStale = Boolean(elapsedHours !== null && elapsedHours >= 5.0);
 
   const handleManualScrapeTrigger = async () => {
     if (isTriggeringScraper) return;
@@ -145,7 +142,7 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.success) {
         setTriggerStatus({
-          message: data.message || `Scrape completed! ${data.checkedCount || 0} products checked.`,
+          message: data.message || `Scrape completed! ${data.checkedCount || 0} products verified.`,
           type: 'success',
         });
         await fetchProducts();
@@ -199,146 +196,136 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Top Banner / Stats */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-surface-border">
         <div>
-          <h1 className="text-xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
-            Tracked Products
+          <h1 className="font-display text-2xl sm:text-4xl text-champagne font-normal tracking-tight">
+            Active Watchlist
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Tracking {products.length} items across Amazon, Flipkart, Meesho, Myntra, Ajio, and Westside
+          <p className="text-xs text-champagne-faint mt-1 font-mono">
+            {products.length} monitored items across 6 storefronts • 4-hour cycle
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto flex-wrap">
+          <Link
+            href="/discover"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-gold/15 hover:bg-gold/25 text-gold border border-gold/30 rounded-sm text-xs font-medium transition-colors"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>Discover Products</span>
+          </Link>
+
           <button
             onClick={() => exportData('csv')}
             disabled={products.length === 0}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs transition-colors disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-surface hover:bg-surface-subtle text-champagne-muted border border-surface-border rounded-sm text-xs transition-colors disabled:opacity-50"
             title="Export CSV"
           >
-            <Download className="w-3.5 h-3.5 text-slate-400" />
+            <Download className="w-3.5 h-3.5 text-champagne-faint" />
             <span>Export CSV</span>
           </button>
 
           <button
             onClick={() => fetchProducts()}
             disabled={isLoading}
-            className="p-2 sm:p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-colors"
+            className="p-2 bg-surface hover:bg-surface-subtle text-champagne-muted border border-surface-border rounded-sm transition-colors"
             title="Refresh list"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
 
           <Link
             href="/add"
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-champagne px-3 py-2 rounded-sm text-xs transition-colors whitespace-nowrap"
           >
-            <PlusCircle className="w-4 h-4" />
-            <span>Add Product</span>
+            <PlusCircle className="w-3.5 h-3.5 text-gold" />
+            <span>Track URL</span>
           </Link>
         </div>
       </div>
 
       {/* Special Combined Access Banner */}
       {user?.isCombined ? (
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/5">
+        <div className="p-4 sm:p-5 rounded-sm bg-surface border border-gold/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
-              <Crown className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-sm bg-surface-subtle border border-gold/30 flex items-center justify-center text-gold flex-shrink-0">
+              <Crown className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-sm sm:text-base text-amber-300">
-                  Special Combined Access Active
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-display text-base sm:text-lg text-champagne">
+                  Special Combined Watchlist
                 </h2>
-                <span className="text-[10px] bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
-                  Shared Space
+                <span className="text-[9px] font-mono uppercase bg-gold/15 text-gold px-1.5 py-0.5 rounded-sm">
+                  Joint Space
                 </span>
-                {/* Watchdog Liveness Badge */}
                 {latestScrapeTime && (
                   <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${
+                    className={`text-[9px] font-mono px-2 py-0.5 rounded-sm inline-flex items-center gap-1 ${
                       isScraperStale
-                        ? 'bg-red-500/20 text-red-300 border border-red-500/30 animate-pulse'
-                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        ? 'bg-terracotta/20 text-terracotta border border-terracotta/40'
+                        : 'bg-sage/15 text-sage border border-sage/30'
                     }`}
-                    title={
-                      isScraperStale
-                        ? `Scraper has not checked products in ${elapsedHours?.toFixed(1)} hours (Threshold: 3h)`
-                        : `Last scrape was ${
-                            elapsedHours !== null
-                              ? elapsedHours < 1
-                                ? `${Math.round(elapsedHours * 60)}m ago`
-                                : `${elapsedHours.toFixed(1)}h ago`
-                              : ''
-                          }`
-                    }
                   >
                     {isScraperStale ? (
                       <>
-                        <AlertTriangle className="w-3 h-3 text-red-400" />
-                        Scraper Idle ({elapsedHours?.toFixed(1)}h ago)
+                        <AlertTriangle className="w-3 h-3 text-terracotta" />
+                        Idle ({elapsedHours?.toFixed(1)}h ago)
                       </>
                     ) : (
                       <>
-                        <Clock className="w-3 h-3 text-emerald-400" />
-                        Checked{' '}
-                        {elapsedHours !== null
-                          ? elapsedHours < 1
-                            ? `${Math.round(elapsedHours * 60)}m ago`
-                            : `${elapsedHours.toFixed(1)}h ago`
-                          : 'recently'}
+                        <Clock className="w-3 h-3 text-sage" />
+                        Checked {elapsedHours !== null ? (elapsedHours < 1 ? `${Math.round(elapsedHours * 60)}m ago` : `${elapsedHours.toFixed(1)}h ago`) : 'recently'}
                       </>
                     )}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-champagne-faint mt-0.5">
                 Unified joint watchlist: products and price drops across connected accounts are merged in this shared space.
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            {/* Manual Scraper Trigger Button for Rahul */}
             <button
               onClick={handleManualScrapeTrigger}
               disabled={isTriggeringScraper}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs transition-all shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-gold hover:bg-gold-hover text-obsidian font-semibold text-xs transition-colors disabled:opacity-50 cursor-pointer"
               title="Manually trigger immediate price scrape across active products"
             >
               <Zap className={`w-3.5 h-3.5 ${isTriggeringScraper ? 'animate-spin' : ''}`} />
-              <span>{isTriggeringScraper ? 'Checking Prices...' : 'Run Scraper Now'}</span>
+              <span>{isTriggeringScraper ? 'Checking...' : 'Run Scraper Now'}</span>
             </button>
 
-            {/* Quick Filter between Mine & Others */}
-            <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80 text-xs">
+            {/* Filter between Mine & Others */}
+            <div className="flex items-center gap-1 p-0.5 bg-obsidian rounded-sm border border-surface-border text-xs">
               <button
                 onClick={() => setCreatorFilter('all')}
-                className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-sm text-xs font-medium transition-colors ${
                   creatorFilter === 'all'
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-surface text-champagne border border-surface-border'
+                    : 'text-champagne-faint hover:text-champagne'
                 }`}
               >
-                All Items ({products.length})
+                All ({products.length})
               </button>
               <button
                 onClick={() => setCreatorFilter('mine')}
-                className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-sm text-xs font-medium transition-colors ${
                   creatorFilter === 'mine'
-                    ? 'bg-emerald-500 text-slate-950 font-bold shadow'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-surface text-gold border border-gold/30'
+                    : 'text-champagne-faint hover:text-champagne'
                 }`}
               >
                 Mine ({myCount})
               </button>
               <button
                 onClick={() => setCreatorFilter('partner')}
-                className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-sm text-xs font-medium transition-colors ${
                   creatorFilter === 'partner'
-                    ? 'bg-pink-500 text-slate-950 font-bold shadow'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-surface text-champagne border border-surface-border'
+                    : 'text-champagne-faint hover:text-champagne'
                 }`}
               >
                 Others ({otherCount})
@@ -347,60 +334,60 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : !user ? (
-        <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 text-slate-300">
-            <KeyRound className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+        <div className="p-3.5 rounded-sm bg-surface border border-surface-border flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-champagne-muted">
+            <KeyRound className="w-4 h-4 text-gold flex-shrink-0" />
             <span>
               Sign in with your 4-digit PIN for private tracking or Combined Access.
             </span>
           </div>
           <Link
             href="/login"
-            className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-lg transition-colors text-xs"
+            className="flex-shrink-0 px-3 py-1 bg-surface-subtle hover:bg-surface-hover text-champagne border border-surface-border rounded-sm transition-colors text-xs"
           >
             Sign In
           </Link>
         </div>
       ) : null}
 
-      {/* Trigger feedback toast banner */}
+      {/* Trigger feedback banner */}
       {triggerStatus && (
         <div
-          className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-3 animate-in fade-in duration-200 ${
+          className={`p-3 rounded-sm border text-xs flex items-center justify-between gap-3 ${
             triggerStatus.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-red-500/10 border-red-500/30 text-red-300'
+              ? 'bg-sage/10 border-sage/30 text-sage'
+              : 'bg-terracotta/10 border-terracotta/30 text-terracotta'
           }`}
         >
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 flex-shrink-0" />
+            <Zap className="w-3.5 h-3.5 flex-shrink-0" />
             <span>{triggerStatus.message}</span>
           </div>
           <button
             onClick={() => setTriggerStatus(null)}
-            className="text-slate-400 hover:text-slate-200 text-xs px-2 py-0.5 rounded bg-slate-800"
+            className="text-champagne-faint hover:text-champagne text-xs px-2 py-0.5 rounded-sm bg-surface"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Watchdog Stale Warning if scraping has not occurred for > 3 hours */}
+      {/* Watchdog Stale Warning if scraping has not occurred for > 5.0 hours */}
       {isScraperStale && (
-        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+        <div className="p-3 rounded-sm border border-terracotta/40 bg-terracotta/10 text-terracotta text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-bounce" />
+            <AlertTriangle className="w-4 h-4 text-terracotta flex-shrink-0" />
             <span>
-              <strong>Scraper Stoppage Warning:</strong> No price checks have been recorded for over{' '}
-              <strong>{elapsedHours?.toFixed(1)} hours</strong>.
+              <strong>Scraper Notice:</strong> Last scheduled cycle occurred{' '}
+              <strong>{elapsedHours?.toFixed(1)} hours ago</strong> (Cycle: 4 hours).
             </span>
           </div>
           <button
             onClick={handleManualScrapeTrigger}
             disabled={isTriggeringScraper}
-            className="px-3 py-1 rounded-lg bg-red-500 hover:bg-red-400 text-slate-950 font-bold text-xs whitespace-nowrap transition-colors self-start sm:self-auto cursor-pointer"
+            className="px-3 py-1 rounded-sm bg-terracotta hover:bg-terracotta/80 text-obsidian font-bold text-xs whitespace-nowrap transition-colors"
           >
-            {isTriggeringScraper ? 'Running...' : 'Trigger Now'}
+            {isTriggeringScraper ? 'Running...' : 'Run Scraper Now'}
           </button>
         </div>
       )}
@@ -409,54 +396,52 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-3">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           <div className="relative flex-1 w-full md:max-w-md">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-champagne-faint absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by product name..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+              placeholder="Search watchlist by product title..."
+              className="w-full bg-surface border border-surface-border rounded-sm pl-9 pr-4 py-2 text-xs text-champagne placeholder:text-champagne-faint focus:outline-none focus:border-gold/50 transition-colors"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* All-time low filter button */}
             <button
               onClick={() => setOnlyAllTimeLow(!onlyAllTimeLow)}
-              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors flex-1 sm:flex-none ${
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-mono uppercase border transition-colors flex-1 sm:flex-none ${
                 onlyAllTimeLow
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                  ? 'bg-gold/20 text-gold border-gold/40'
+                  : 'bg-surface text-champagne-muted border-surface-border hover:text-champagne'
               }`}
             >
-              <Flame className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-              <span>All-time Low ({allTimeLowCount})</span>
+              <Flame className="w-3 h-3 text-gold flex-shrink-0" />
+              <span>All-Time Low ({allTimeLowCount})</span>
             </button>
 
-            {/* Sort dropdown */}
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-slate-900 border border-slate-800 text-slate-300 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none flex-1 sm:flex-none"
+              className="bg-surface border border-surface-border text-champagne text-xs rounded-sm px-3 py-1.5 focus:outline-none flex-1 sm:flex-none"
             >
-              <option value="recent">Sort: Newest</option>
+              <option value="recent">Sort: Newest First</option>
               <option value="discount">Sort: Highest Discount</option>
               <option value="price_asc">Sort: Lowest Price</option>
             </select>
           </div>
         </div>
 
-        {/* Platform toggle (touch-scrollable horizontal bar on mobile) */}
+        {/* Platform toggle */}
         <div className="w-full overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
-          <div className="inline-flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs whitespace-nowrap">
+          <div className="inline-flex bg-surface p-1 rounded-sm border border-surface-border text-xs whitespace-nowrap gap-1">
             {(['all', 'amazon', 'flipkart', 'meesho', 'myntra', 'ajio', 'westside'] as const).map((plat) => (
               <button
                 key={plat}
                 onClick={() => setSelectedPlatform(plat)}
-                className={`px-3 py-1.5 rounded-lg font-medium capitalize transition-colors flex-shrink-0 ${
+                className={`px-3 py-1 rounded-sm text-xs font-mono uppercase tracking-wider transition-colors flex-shrink-0 ${
                   selectedPlatform === plat
-                    ? 'bg-slate-800 text-emerald-400 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-surface-subtle text-gold border border-gold/30'
+                    : 'text-champagne-muted hover:text-champagne border border-transparent'
                 }`}
               >
                 {plat}
@@ -468,7 +453,7 @@ export default function DashboardPage() {
 
       {/* Error notification */}
       {error && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+        <div className="p-3.5 rounded-sm bg-terracotta/10 border border-terracotta/30 text-terracotta text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -476,52 +461,61 @@ export default function DashboardPage() {
 
       {/* Grid or Empty State */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="h-64 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse p-4 flex flex-col justify-between"
+              className="h-64 rounded-sm bg-surface border border-surface-border animate-pulse p-4 flex flex-col justify-between"
             >
               <div className="space-y-3">
-                <div className="w-16 h-5 bg-slate-800 rounded-full" />
+                <div className="w-16 h-4 bg-surface-subtle rounded-sm" />
                 <div className="flex gap-3">
-                  <div className="w-16 h-16 bg-slate-800 rounded-xl" />
+                  <div className="w-16 h-16 bg-surface-subtle rounded-sm" />
                   <div className="flex-1 space-y-2">
-                    <div className="w-full h-4 bg-slate-800 rounded" />
-                    <div className="w-2/3 h-4 bg-slate-800 rounded" />
+                    <div className="w-full h-4 bg-surface-subtle rounded-sm" />
+                    <div className="w-2/3 h-4 bg-surface-subtle rounded-sm" />
                   </div>
                 </div>
               </div>
-              <div className="w-full h-10 bg-slate-800 rounded-xl" />
+              <div className="w-full h-8 bg-surface-subtle rounded-sm" />
             </div>
           ))}
         </div>
       ) : sortedProducts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
       ) : (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center max-w-lg mx-auto space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-400 mx-auto">
-            <ShoppingBag className="w-8 h-8" />
+        <div className="bg-surface border border-surface-border rounded-sm p-8 sm:p-12 text-center max-w-lg mx-auto space-y-4">
+          <div className="w-14 h-14 rounded-sm bg-surface-subtle border border-surface-border flex items-center justify-center text-champagne-faint mx-auto">
+            <ShoppingBag className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-200">No products found</h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <h3 className="font-display text-xl text-champagne">No items tracked</h3>
+            <p className="text-xs text-champagne-faint mt-1">
               {search || selectedPlatform !== 'all' || onlyAllTimeLow
                 ? 'Try adjusting your search filters.'
-                : 'Start by tracking your first product from Amazon, Flipkart, or Meesho.'}
+                : 'Explore products across 6 storefronts or paste a direct product link.'}
             </p>
           </div>
-          <Link
-            href="/add"
-            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs transition-colors shadow-md shadow-emerald-500/20"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Track First Product</span>
-          </Link>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <Link
+              href="/discover"
+              className="inline-flex items-center gap-1.5 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-4 py-2 rounded-sm text-xs transition-colors"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Discover Products</span>
+            </Link>
+            <Link
+              href="/add"
+              className="inline-flex items-center gap-1.5 bg-surface-subtle hover:bg-surface-hover text-champagne border border-surface-border px-4 py-2 rounded-sm text-xs transition-colors"
+            >
+              <PlusCircle className="w-3.5 h-3.5 text-gold" />
+              <span>Paste URL</span>
+            </Link>
+          </div>
         </div>
       )}
     </div>

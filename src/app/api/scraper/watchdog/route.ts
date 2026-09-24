@@ -46,7 +46,7 @@ async function handleWatchdog(req: NextRequest) {
     const now = Date.now();
     const elapsedMs = mostRecentTimestamp > 0 ? now - mostRecentTimestamp : Infinity;
     const elapsedHours = Math.round((elapsedMs / (1000 * 60 * 60)) * 10) / 10;
-    const isStale = elapsedHours >= 3.0 || forceAlert;
+    const isStale = elapsedHours >= 5.0 || forceAlert;
 
     let alertSent = false;
     let alertError: string | undefined;

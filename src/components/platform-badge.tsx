@@ -3,40 +3,40 @@ import { Platform } from '@/types';
 const PLATFORM_CONFIGS: Record<string, { label: string; bg: string; dot: string }> = {
   amazon: {
     label: 'Amazon',
-    bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    bg: 'bg-amber-950/25 text-amber-300/90 border-amber-800/35',
     dot: 'bg-amber-400',
   },
   flipkart: {
     label: 'Flipkart',
-    bg: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-    dot: 'bg-blue-400',
+    bg: 'bg-sky-950/25 text-sky-300/90 border-sky-800/35',
+    dot: 'bg-sky-400',
   },
   meesho: {
     label: 'Meesho',
-    bg: 'bg-pink-500/10 text-pink-400 border-pink-500/30',
+    bg: 'bg-pink-950/25 text-pink-300/90 border-pink-800/35',
     dot: 'bg-pink-400',
   },
   myntra: {
     label: 'Myntra',
-    bg: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    bg: 'bg-rose-950/25 text-rose-300/90 border-rose-800/35',
     dot: 'bg-rose-400',
   },
   ajio: {
     label: 'Ajio',
-    bg: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+    bg: 'bg-indigo-950/25 text-indigo-300/90 border-indigo-800/35',
     dot: 'bg-indigo-400',
   },
   westside: {
     label: 'Westside',
-    bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    dot: 'bg-emerald-400',
+    bg: 'bg-surface-subtle text-champagne border-white/10',
+    dot: 'bg-gold',
   },
 };
 
 const DEFAULT_CONFIG = {
   label: 'Unknown',
-  bg: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
-  dot: 'bg-slate-400',
+  bg: 'bg-surface-subtle text-champagne-muted border-surface-border',
+  dot: 'bg-champagne-faint',
 };
 
 interface PlatformBadgeProps {
@@ -49,7 +49,7 @@ export function PlatformBadge({ platform, className = '' }: PlatformBadgeProps) 
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.bg} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[10px] font-mono tracking-wider uppercase border ${config.bg} ${className}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
       {config.label}

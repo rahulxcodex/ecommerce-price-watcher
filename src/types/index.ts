@@ -68,3 +68,36 @@ export interface ScrapeResult {
   error?: string;
 }
 
+export interface DiscoveryResult {
+  id: string;
+  title: string;
+  price: number;
+  originalPrice?: number;
+  discountPercent?: number;
+  brand?: string;
+  imageUrl?: string;
+  productUrl: string;
+  rating?: number;
+  reviewCount?: number;
+  platform: Platform;
+  isParetoOptimal?: boolean;
+  isAlreadyTracked?: boolean;
+}
+
+export interface SearchHistoryItem {
+  id: string;
+  user_id?: string | null;
+  created_by_name?: string | null;
+  platform: Platform;
+  query: string;
+  result_count: number;
+  created_at: string;
+}
+
+export interface SmartFilterFacets {
+  brands: Array<{ name: string; count: number }>;
+  priceRange: { min: number; max: number };
+  discountRanges: Array<{ label: string; min: number; count: number }>;
+  ratings: Array<{ minRating: number; count: number }>;
+}
+

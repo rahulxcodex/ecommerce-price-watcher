@@ -373,8 +373,8 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-slate-400">
-        <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-champagne-faint font-mono">
+        <Loader2 className="w-6 h-6 animate-spin text-gold" />
         <p className="text-xs">Loading settings...</p>
       </div>
     );
@@ -383,20 +383,20 @@ export default function SettingsPage() {
   return (
     <div className="max-w-3xl mx-auto py-6 space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
+        <h1 className="font-display text-2xl sm:text-4xl text-champagne font-normal tracking-tight">
           Alert &amp; Notification Settings
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-champagne-faint mt-1 font-mono">
           Configure personal notifications across Telegram, WhatsApp, Email, and Browser Push
         </p>
       </div>
 
       {user?.isCombined && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 flex items-center gap-3 text-amber-300 text-xs shadow-md">
-          <Crown className="w-5 h-5 text-amber-400 flex-shrink-0" />
+        <div className="p-4 rounded-sm bg-surface border border-gold/30 flex items-center gap-3 text-gold text-xs">
+          <Crown className="w-5 h-5 text-gold flex-shrink-0" />
           <div>
-            <span className="font-bold text-amber-300">Special Combined Settings (Shared Space):</span>
-            <p className="text-[11px] text-slate-300 mt-0.5">
+            <span className="font-semibold text-champagne">Special Combined Settings (Shared Space):</span>
+            <p className="text-[11px] text-champagne-faint mt-0.5">
               These notification channels will alert connected accounts in this shared space when tracked items drop in price.
             </p>
           </div>
@@ -405,10 +405,10 @@ export default function SettingsPage() {
 
       {statusMessage && (
         <div
-          className={`p-4 rounded-xl text-xs flex items-center gap-2.5 border ${
+          className={`p-3.5 rounded-sm text-xs flex items-center gap-2.5 border ${
             statusMessage.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-              : 'bg-red-500/10 border-red-500/20 text-red-400'
+              ? 'bg-sage/10 border-sage/20 text-sage'
+              : 'bg-terracotta/10 border-terracotta/20 text-terracotta'
           }`}
         >
           {statusMessage.type === 'success' ? (
@@ -421,14 +421,14 @@ export default function SettingsPage() {
       )}
 
       {/* Web Push Notification Banner & Diagnostic Box */}
-      <div className="bg-slate-900/80 border border-slate-800 p-4 sm:p-5 rounded-2xl sm:rounded-3xl space-y-4">
+      <div className="bg-surface border border-surface-border p-4 sm:p-5 rounded-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Smartphone className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-              <h3 className="text-sm font-bold text-slate-100">Instant In-Browser Web Push</h3>
+              <Smartphone className="w-4 h-4 text-gold flex-shrink-0" />
+              <h3 className="text-sm font-medium text-champagne">Instant In-Browser Web Push</h3>
               {pushStatus === 'enabled' && (
-                <span className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
+                <span className="text-[10px] font-mono bg-sage/15 text-sage border border-sage/30 px-2 py-0.5 rounded-sm">
                   Active on this device
                 </span>
               )}
@@ -898,7 +898,7 @@ export default function SettingsPage() {
         <button
           type="submit"
           disabled={isSaving}
-          className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-bold py-3 sm:py-3.5 px-4 rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2"
+          className="w-full bg-gold hover:bg-gold-hover disabled:bg-surface-subtle disabled:text-champagne-faint text-obsidian font-semibold py-3 px-4 rounded-sm text-xs sm:text-sm transition-colors flex items-center justify-center gap-2"
         >
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           <span>Save All Settings</span>

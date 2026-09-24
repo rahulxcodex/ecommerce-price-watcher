@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { analyzePriceTrend } from '@/lib/dsa';
+import { analyzePriceTrend, computeOptimalStopping } from '@/lib/dsa';
 import {
   ArrowLeft,
   ExternalLink,
@@ -18,6 +18,8 @@ import {
   Save,
   Loader2,
   CheckCircle2,
+  Activity,
+  Calculator,
 } from 'lucide-react';
 import { Product, PriceHistoryItem } from '@/types';
 import { PlatformBadge } from '@/components/platform-badge';
@@ -40,6 +42,11 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       analyzePriceTrend(
         history.map((h) => ({ price: h.price, timestamp: h.recorded_at }))
       ),
+    [history]
+  );
+
+  const optimalStopping = useMemo(
+    () => computeOptimalStopping(history.map((h) => Number(h.price))),
     [history]
   );
 
@@ -68,20 +75,18 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     e.preventDefault();
     setIsSavingTarget(true);
     setMessage(null);
-
     try {
-      const val = targetInput.trim() ? Number(targetInput) : null;
       const res = await fetch(`/api/products/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_price: val }),
+        body: JSON.stringify({
+          target_price: targetInput ? Number(targetInput) : null,
+        }),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update target price');
-
       setProduct(data.product);
-      setMessage({ type: 'success', text: 'Target price updated successfully!' });
+      setMessage({ type: 'success', text: 'Target price updated successfully.' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setMessage({ type: 'error', text: msg });
@@ -96,40 +101,50 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       const res = await fetch(`/api/products/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !product.is_active }),
+        body: JSON.stringify({
+          is_active: !product.is_active,
+        }),
       });
       const data = await res.json();
-      if (res.ok) setProduct(data.product);
-    } catch (err) {
-      console.error(err);
+      if (!res.ok) throw new Error(data.error || 'Failed to update tracking state');
+      setProduct(data.product);
+      setMessage({
+        type: 'success',
+        text: data.product.is_active ? 'Tracking resumed.' : 'Tracking paused.',
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMessage({ type: 'error', text: msg });
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to stop tracking this product?')) return;
+    if (!confirm('Are you sure you want to remove this product from your watchlist?')) return;
     try {
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-      if (res.ok) router.push('/dashboard');
-    } catch (err) {
-      console.error(err);
+      if (!res.ok) throw new Error('Failed to delete product');
+      router.push('/dashboard');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMessage({ type: 'error', text: msg });
     }
   };
 
   if (isLoading) {
     return (
-      <div className="py-20 flex flex-col items-center justify-center text-slate-500">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mb-3" />
-        <p className="text-xs">Loading product analytics...</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-champagne-faint font-mono">
+        <Loader2 className="w-6 h-6 animate-spin text-gold" />
+        <p className="text-xs">Loading product intelligence...</p>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-slate-400">Product not found.</p>
-        <Link href="/dashboard" className="text-emerald-400 text-xs mt-2 inline-block">
-          Return to Dashboard
+      <div className="text-center py-20 bg-surface border border-surface-border rounded-sm">
+        <p className="text-champagne-faint text-sm">Product not found.</p>
+        <Link href="/dashboard" className="text-gold text-xs font-mono mt-2 inline-block hover:underline">
+          ← Return to Watchlist
         </Link>
       </div>
     );
@@ -142,18 +157,18 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     <div className="max-w-4xl mx-auto py-4 space-y-6">
       <Link
         href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-mono text-champagne-faint hover:text-champagne transition-colors"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Back to Dashboard</span>
+        <span>Back to Watchlist</span>
       </Link>
 
       {message && (
         <div
-          className={`p-3.5 rounded-xl text-xs flex items-center gap-2 border ${
+          className={`p-3.5 rounded-sm text-xs flex items-center gap-2 border ${
             message.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-              : 'bg-red-500/10 border-red-500/20 text-red-400'
+              ? 'bg-sage/10 border-sage/30 text-sage'
+              : 'bg-terracotta/10 border-terracotta/30 text-terracotta'
           }`}
         >
           {message.type === 'success' ? (
@@ -166,10 +181,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       )}
 
       {/* Main Product Card Header */}
-      <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
+      <div className="bg-surface border border-surface-border p-4 sm:p-6 rounded-sm">
         <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
           {/* Image */}
-          <div className="relative w-full md:w-48 h-48 sm:h-52 rounded-2xl bg-slate-800 flex-shrink-0 flex items-center justify-center p-3 border border-slate-700/50 overflow-hidden">
+          <div className="relative w-full md:w-48 h-48 sm:h-52 rounded-sm bg-obsidian flex-shrink-0 flex items-center justify-center p-3 border border-surface-border overflow-hidden">
             {product.image_url ? (
               <Image
                 src={product.image_url}
@@ -180,7 +195,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 unoptimized
               />
             ) : (
-              <span className="text-slate-600 text-xs">No image available</span>
+              <span className="text-champagne-faint text-xs font-mono">No image available</span>
             )}
           </div>
 
@@ -190,48 +205,46 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <PlatformBadge platform={product.platform} />
                 {product.created_by_name && (
-                  <span
-                    className="text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                  >
+                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm border bg-surface-subtle text-champagne-muted border-surface-border">
                     {product.created_by_name.toLowerCase().includes('rahul')
                       ? 'Shared Space'
                       : 'Personal'}
                   </span>
                 )}
                 {isAllTimeLow && (
-                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                    🔥 ALL-TIME LOW
+                  <span className="bg-gold/20 text-gold border border-gold/40 text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm">
+                    ★ All-Time Low
                   </span>
                 )}
                 {!product.is_active && (
-                  <span className="bg-slate-800 text-slate-400 text-xs px-2.5 py-0.5 rounded-full font-medium">
-                    Tracking Paused
+                  <span className="bg-surface-subtle text-champagne-faint text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm border border-surface-border">
+                    Paused
                   </span>
                 )}
               </div>
 
-              <h1 className="text-base sm:text-xl font-bold text-slate-100 leading-snug break-words">
+              <h1 className="font-display text-xl sm:text-2xl font-normal text-champagne leading-snug break-words">
                 {product.title}
               </h1>
 
               {/* Price Stats */}
-              <div className="mt-3 sm:mt-4 flex flex-wrap items-baseline gap-2.5 sm:gap-3">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-100">
+              <div className="mt-3 flex flex-wrap items-baseline gap-2.5 sm:gap-3">
+                <span className="font-display text-2xl sm:text-3xl font-normal text-champagne-light">
                   {formatPrice(product.current_price, product.currency)}
                 </span>
                 {product.highest_price > product.current_price && (
-                  <span className="text-xs sm:text-sm text-slate-500 line-through">
+                  <span className="text-xs sm:text-sm text-champagne-faint line-through font-mono">
                     {formatPrice(product.highest_price, product.currency)}
                   </span>
                 )}
                 {discount > 0 && (
-                  <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-                    {discount}% OFF Peak
+                  <span className="text-xs font-mono text-sage bg-sage/15 px-2 py-0.5 rounded-sm border border-sage/30">
+                    {discount}% Off Peak
                   </span>
                 )}
                 {product.selected_size && (
-                  <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-lg border border-slate-700 font-semibold">
-                    Tracked Size: {product.selected_size}
+                  <span className="text-xs font-mono bg-surface-subtle text-champagne-muted px-2 py-0.5 rounded-sm border border-surface-border">
+                    Size: {product.selected_size}
                   </span>
                 )}
               </div>
@@ -240,61 +253,80 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               {(() => {
                 const isDeceptive = product.highest_price >= product.current_price * 1.5 && history.length >= 2;
                 const rec = trendAnalysis.recommendation;
-                const isGoodBuy = rec === 'STRONG_BUY' || rec === 'BUY';
 
                 return (
                   <div className="mt-4 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-                      <span className="text-slate-500 font-medium">Predictive Verdict:</span>
+                    <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-sm bg-obsidian border border-surface-border text-xs font-mono">
+                      <span className="text-champagne-faint">OLS Verdict:</span>
                       {rec === 'STRONG_BUY' ? (
-                        <span className="font-bold text-emerald-400 flex items-center gap-1">
-                          🟢 STRONG BUY — At historical price floor!
+                        <span className="text-sage font-medium flex items-center gap-1">
+                          ● STRONG BUY (Historical Floor)
                         </span>
                       ) : rec === 'BUY' ? (
-                        <span className="font-bold text-emerald-300 flex items-center gap-1">
-                          🟢 GOOD BUY — Favorable price distribution.
+                        <span className="text-sage flex items-center gap-1">
+                          ● GOOD BUY (Favorable Range)
                         </span>
                       ) : (
-                        <span className="font-bold text-amber-400 flex items-center gap-1">
-                          ⏳ WAIT — Price is above floor; likely to drop during sales.
+                        <span className="text-gold flex items-center gap-1">
+                          ● WAIT (Price expected to drop)
                         </span>
                       )}
 
                       {trendAnalysis.rollingLow7d !== undefined && trendAnalysis.rollingLow7d > 0 && (
-                        <span className="text-[11px] bg-slate-900 text-slate-300 px-2 py-0.5 rounded-lg border border-slate-800">
+                        <span className="text-[10px] text-champagne-faint px-1.5 py-0.5 rounded-sm border border-surface-border">
                           7d Low: {formatPrice(trendAnalysis.rollingLow7d, product.currency)}
                         </span>
                       )}
 
                       {trendAnalysis.direction && (
-                        <span className="text-[11px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded-lg border border-slate-800">
-                          Trend: {trendAnalysis.direction === 'falling' ? '📉 Dropping' : trendAnalysis.direction === 'rising' ? '📈 Rising' : '➡️ Stable'} ({trendAnalysis.confidence}% conf)
+                        <span className="text-[10px] text-champagne-faint px-1.5 py-0.5 rounded-sm border border-surface-border">
+                          Trend: {trendAnalysis.direction === 'falling' ? '📉 Dropping' : trendAnalysis.direction === 'rising' ? '📈 Rising' : '➡️ Stable'} ({trendAnalysis.confidence}%)
                         </span>
                       )}
                     </div>
 
+                    {/* Optimal Stopping (Secretary Problem / 37% rule) Badge */}
+                    <div className="p-2.5 rounded-sm bg-obsidian border border-surface-border text-xs font-mono space-y-1">
+                      <div className="flex items-center justify-between text-champagne-muted">
+                        <span className="flex items-center gap-1 text-[11px] text-gold uppercase tracking-wider">
+                          <Activity className="w-3.5 h-3.5" />
+                          <span>Optimal Stopping (37% Secretary Rule)</span>
+                        </span>
+                        <span className="text-champagne text-[11px]">Score: {optimalStopping.stoppingScore}/100</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[10px] text-champagne-faint">
+                        <span>P(Cheaper Soon): {(optimalStopping.probCheaperSoon * 100).toFixed(0)}%</span>
+                        <span>•</span>
+                        <span>Log Volatility: σ = {optimalStopping.logVolatility}</span>
+                        <span>•</span>
+                        <span className={optimalStopping.shouldBuyNow ? 'text-sage font-medium' : 'text-gold'}>
+                          {optimalStopping.shouldBuyNow ? '✓ Statistically Optimal to Buy' : '⏳ Post-calibration waiting mode'}
+                        </span>
+                      </div>
+                    </div>
+
                     {isDeceptive && (
-                      <div className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
-                        <span>Deceptive MRP detected: Retailer appears to have marked up base price by {Math.round((product.highest_price / product.current_price - 1) * 100)}% to simulate a fake discount.</span>
+                      <div className="text-[11px] font-mono text-terracotta bg-terracotta/10 border border-terracotta/20 p-2 rounded-sm flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>Deceptive MRP detected: Retailer markup of {Math.round((product.highest_price / product.current_price - 1) * 100)}% simulates inflated discount.</span>
                       </div>
                     )}
                   </div>
                 );
               })()}
 
-              {/* Feature 6: Bank Card Discount Calculator */}
+              {/* Bank Card Discount Calculator */}
               {product.bank_offers && product.bank_offers.length > 0 && (
-                <div className="mt-3 bg-purple-500/10 border border-purple-500/20 p-3 rounded-xl text-xs">
-                  <span className="font-bold text-purple-300 block mb-1">💳 Active Bank Offers:</span>
+                <div className="mt-3 bg-obsidian border border-surface-border p-3 rounded-sm text-xs font-mono">
+                  <span className="text-gold font-medium block mb-1">💳 Bank Offers:</span>
                   <div className="space-y-1">
                     {product.bank_offers.map((offer, idx) => {
                       const estimatedDiscount = Math.min(Math.round(product.current_price * 0.1), 1500);
                       const netPrice = product.current_price - estimatedDiscount;
                       return (
-                        <div key={idx} className="flex justify-between items-center text-slate-300">
+                        <div key={idx} className="flex justify-between items-center text-champagne-muted">
                           <span>{offer.bank} Card Discount (10% up to ₹1,500)</span>
-                          <span className="font-bold text-purple-400">Net: {formatPrice(netPrice)}</span>
+                          <span className="text-gold font-medium">Net: {formatPrice(netPrice)}</span>
                         </div>
                       );
                     })}
@@ -304,12 +336,12 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             </div>
 
             {/* Quick Actions */}
-            <div className="mt-5 sm:mt-6 flex flex-wrap items-center gap-2 pt-4 border-t border-slate-800">
+            <div className="mt-5 flex flex-wrap items-center gap-2 pt-4 border-t border-surface-border">
               <a
                 href={product.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors shadow-md shadow-emerald-500/20 whitespace-nowrap"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-4 py-2 rounded-sm text-xs transition-colors whitespace-nowrap"
               >
                 <span>Buy on {product.platform.toUpperCase()}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -317,16 +349,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
               <button
                 onClick={handleToggleActive}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-champagne px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap"
               >
                 {product.is_active ? (
                   <>
-                    <Pause className="w-3.5 h-3.5 text-amber-400" />
+                    <Pause className="w-3.5 h-3.5 text-gold" />
                     <span>Pause Tracking</span>
                   </>
                 ) : (
                   <>
-                    <Play className="w-3.5 h-3.5 text-emerald-400" />
+                    <Play className="w-3.5 h-3.5 text-sage" />
                     <span>Resume Tracking</span>
                   </>
                 )}
@@ -334,35 +366,35 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
               <button
                 onClick={handleDelete}
-                className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+                className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-1.5 bg-surface hover:bg-surface-subtle text-terracotta border border-surface-border px-3.5 py-2 rounded-sm text-xs font-medium transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Stop Tracking</span>
+                <span>Remove</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* 3 Metric cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-slate-800/80">
-          <div className="bg-slate-950/60 p-3 sm:p-3.5 rounded-xl border border-slate-800/60">
-            <span className="text-slate-500 text-[10px] uppercase font-semibold block">All-time Lowest</span>
-            <span className="text-base sm:text-lg font-bold text-emerald-400">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mt-5 pt-5 border-t border-surface-border">
+          <div className="bg-obsidian p-3 rounded-sm border border-surface-border">
+            <span className="text-champagne-faint text-[9px] font-mono uppercase tracking-wider block">All-time Lowest</span>
+            <span className="text-base sm:text-lg font-mono font-medium text-sage">
               {formatPrice(product.lowest_price, product.currency)}
             </span>
           </div>
 
-          <div className="bg-slate-950/60 p-3 sm:p-3.5 rounded-xl border border-slate-800/60">
-            <span className="text-slate-500 text-[10px] uppercase font-semibold block">Highest Recorded</span>
-            <span className="text-base sm:text-lg font-bold text-slate-300">
+          <div className="bg-obsidian p-3 rounded-sm border border-surface-border">
+            <span className="text-champagne-faint text-[9px] font-mono uppercase tracking-wider block">Highest Recorded</span>
+            <span className="text-base sm:text-lg font-mono font-medium text-champagne">
               {formatPrice(product.highest_price, product.currency)}
             </span>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 bg-slate-950/60 p-3 sm:p-3.5 rounded-xl border border-slate-800/60">
-            <span className="text-slate-500 text-[10px] uppercase font-semibold block">Last Checked</span>
-            <span className="text-xs sm:text-sm font-semibold text-slate-300 flex items-center gap-1 mt-1">
-              <Clock className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+          <div className="col-span-2 sm:col-span-1 bg-obsidian p-3 rounded-sm border border-surface-border">
+            <span className="text-champagne-faint text-[9px] font-mono uppercase tracking-wider block">Last Checked</span>
+            <span className="text-xs sm:text-sm font-mono text-champagne-muted flex items-center gap-1 mt-1">
+              <Clock className="w-3.5 h-3.5 text-champagne-faint flex-shrink-0" />
               <span>{formatRelativeTime(product.last_checked_at)}</span>
             </span>
           </div>
@@ -373,18 +405,18 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       <PriceChart history={history} lowestPrice={product.lowest_price} />
 
       {/* Target Price Configuration */}
-      <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
+      <div className="bg-surface border border-surface-border p-4 sm:p-6 rounded-sm">
         <div className="flex items-center gap-2 mb-2">
-          <BellRing className="w-4 h-4 text-emerald-400" />
-          <h2 className="text-sm sm:text-base font-bold text-slate-100">Set Custom Price Alert</h2>
+          <BellRing className="w-4 h-4 text-gold" />
+          <h2 className="font-display text-lg text-champagne">Set Custom Price Alert</h2>
         </div>
-        <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+        <p className="text-xs text-champagne-faint mb-4 leading-relaxed">
           In addition to the automatic All-Time Low notification, get an instant Telegram alert if the price dips below your specified target.
         </p>
 
-        <form onSubmit={handleUpdateTarget} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+        <form onSubmit={handleUpdateTarget} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <div className="relative flex-1">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">₹</span>
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-champagne-faint font-mono text-sm">₹</span>
             <input
               type="number"
               min="1"
@@ -392,20 +424,20 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               value={targetInput}
               onChange={(e) => setTargetInput(e.target.value)}
               placeholder="Enter target price threshold..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50"
+              className="w-full bg-obsidian border border-surface-border rounded-sm pl-8 pr-4 py-2 text-xs text-champagne placeholder:text-champagne-faint focus:outline-none focus:border-gold/50 font-mono"
             />
           </div>
           <button
             type="submit"
             disabled={isSavingTarget}
-            className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs transition-colors shadow-md shadow-emerald-500/20"
+            className="flex items-center justify-center gap-2 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-4 py-2 rounded-sm text-xs transition-colors"
           >
             {isSavingTarget ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Save className="w-3.5 h-3.5" />
             )}
-            <span>Save Target Alert</span>
+            <span>Save Alert</span>
           </button>
         </form>
       </div>

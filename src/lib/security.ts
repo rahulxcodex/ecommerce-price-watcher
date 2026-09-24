@@ -339,3 +339,51 @@ export function validateSettingsPayload(body: Record<string, any>): { valid: boo
   return { valid: true };
 }
 
+/**
+ * In-memory sliding-window rate limiter for Product Discovery searches.
+ * Limit: 5 requests per 60 seconds per user/IP.
+ */
+const searchRateLimitMap = new Map<string, number[]>();
+
+export function checkSearchRateLimit(
+  identifier: string,
+  limit: number = 5,
+  windowMs: number = 60_000
+): { allowed: boolean; remaining: number; retryAfterSeconds: number } {
+  const now = Date.now();
+  const timestamps = searchRateLimitMap.get(identifier) || [];
+
+  // Filter timestamps within current window
+  const activeTimestamps = timestamps.filter((t) => now - t < windowMs);
+
+  if (activeTimestamps.length >= limit) {
+    const oldestTimestamp = activeTimestamps[0];
+    const retryAfterMs = windowMs - (now - oldestTimestamp);
+    const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds,
+    };
+  }
+
+  // Record this request
+  activeTimestamps.push(now);
+  searchRateLimitMap.set(identifier, activeTimestamps);
+
+  // Periodically clean stale keys if map exceeds 5000 entries
+  if (searchRateLimitMap.size > 5000) {
+    for (const [key, times] of searchRateLimitMap.entries()) {
+      if (times.every((t) => now - t > windowMs)) {
+        searchRateLimitMap.delete(key);
+      }
+    }
+  }
+
+  return {
+    allowed: true,
+    remaining: limit - activeTimestamps.length,
+    retryAfterSeconds: 0,
+  };
+}
+

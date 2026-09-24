@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ExternalLink, TrendingDown, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { ExternalLink, TrendingDown, Clock, AlertTriangle } from 'lucide-react';
 import { Product } from '@/types';
 import { PlatformBadge } from './platform-badge';
 import { formatPrice, formatRelativeTime, calculateDiscount } from '@/lib/utils';
@@ -12,7 +12,6 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  // Bug 15 fix: Only show all-time low if price has actually dropped from a previous higher price
   const isAllTimeLow =
     product.current_price <= product.lowest_price &&
     product.lowest_price > 0 &&
@@ -22,16 +21,14 @@ export function ProductCard({ product }: ProductCardProps) {
   const discount = calculateDiscount(product.current_price, product.highest_price);
 
   return (
-    <div className="group relative bg-slate-900/60 border border-slate-800 hover:border-slate-700 hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-200 rounded-2xl p-4 flex flex-col justify-between">
+    <div className="group relative bg-surface border border-surface-border hover:border-gold/40 transition-colors rounded-sm p-4 flex flex-col justify-between">
       <div>
         {/* Header with platform & status badges */}
         <div className="flex items-center justify-between gap-1.5 mb-3 flex-wrap">
           <div className="flex items-center gap-1.5">
             <PlatformBadge platform={product.platform} />
             {product.created_by_name && (
-              <span
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-              >
+              <span className="text-[9px] font-mono tracking-wider uppercase px-1.5 py-0.5 rounded-sm border bg-surface-subtle text-champagne-muted border-surface-border">
                 {product.created_by_name.toLowerCase().includes('rahul')
                   ? 'Shared Space'
                   : 'Personal'}
@@ -40,24 +37,24 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {isOutOfStock ? (
-            <span className="inline-flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-bold px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 bg-terracotta/15 text-terracotta border border-terracotta/30 text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm">
               Out of Stock
             </span>
           ) : isAllTimeLow ? (
-            <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-              🔥 ALL-TIME LOW
+            <span className="inline-flex items-center gap-1 bg-gold/20 text-gold border border-gold/40 text-[10px] font-mono font-medium tracking-wide uppercase px-2 py-0.5 rounded-sm">
+              ★ All-Time Low
             </span>
           ) : discount > 0 ? (
-            <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 bg-sage/15 text-sage border border-sage/30 text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm">
               <TrendingDown className="w-3 h-3" />
-              {discount}% OFF
+              {discount}% Off
             </span>
           ) : null}
         </div>
 
         {/* Product image & title */}
         <div className="flex gap-3 mb-3">
-          <div className="relative w-20 h-20 rounded-xl bg-slate-800 flex-shrink-0 overflow-hidden flex items-center justify-center border border-slate-700/50">
+          <div className="relative w-20 h-20 rounded-sm bg-obsidian flex-shrink-0 overflow-hidden flex items-center justify-center border border-surface-border">
             {product.image_url ? (
               <Image
                 src={product.image_url}
@@ -69,37 +66,37 @@ export function ProductCard({ product }: ProductCardProps) {
                 unoptimized
               />
             ) : (
-              <span className="text-slate-600 text-xs font-medium">No Image</span>
+              <span className="text-champagne-faint text-[10px] font-mono">No Image</span>
             )}
           </div>
 
           <div className="flex-1 min-w-0">
             <Link
               href={`/product/${product.id}`}
-              className="font-semibold text-sm text-slate-100 hover:text-emerald-400 line-clamp-2 break-words transition-colors"
+              className="font-medium text-xs sm:text-sm text-champagne hover:text-gold line-clamp-2 break-words transition-colors"
               title={product.title}
             >
               {product.title}
             </Link>
 
             <div className="mt-2 flex items-baseline gap-2 flex-wrap">
-              <span className="text-xl font-extrabold text-slate-100 tracking-tight">
+              <span className="font-display text-xl sm:text-2xl text-champagne-light tracking-tight font-normal">
                 {formatPrice(product.current_price, product.currency)}
               </span>
               {product.highest_price > product.current_price && (
-                <span className="text-xs text-slate-500 line-through">
+                <span className="text-xs text-champagne-faint line-through font-mono">
                   {formatPrice(product.highest_price, product.currency)}
                 </span>
               )}
               {product.selected_size && (
-                <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700 font-medium">
+                <span className="text-[10px] font-mono bg-surface-subtle text-champagne-muted px-1.5 py-0.2 rounded-sm border border-surface-border">
                   Size: {product.selected_size}
                 </span>
               )}
             </div>
 
             {product.bank_offers && product.bank_offers.length > 0 && (
-              <div className="mt-1 text-[11px] text-amber-400/90 font-medium flex items-center gap-1 line-clamp-1">
+              <div className="mt-1 text-[11px] text-gold/90 font-mono flex items-center gap-1 line-clamp-1">
                 <span>💳 {product.bank_offers[0].description.slice(0, 45)}...</span>
               </div>
             )}
@@ -107,18 +104,18 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {/* Lowest price stat bar */}
-        <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 mb-3 text-xs flex justify-between items-center">
+        <div className="bg-obsidian/80 rounded-sm p-2.5 border border-surface-border mb-3 text-xs flex justify-between items-center">
           <div>
-            <span className="text-slate-500 block text-[10px] uppercase font-semibold">Lowest Recorded</span>
-            <span className="text-emerald-400 font-bold">
+            <span className="text-champagne-faint block text-[9px] uppercase font-mono tracking-wider">Lowest Recorded</span>
+            <span className="text-sage font-mono font-medium">
               {formatPrice(product.lowest_price, product.currency)}
             </span>
           </div>
 
           {product.target_price && (
             <div className="text-right">
-              <span className="text-slate-500 block text-[10px] uppercase font-semibold">Target Alert</span>
-              <span className="text-cyan-400 font-bold">
+              <span className="text-champagne-faint block text-[9px] uppercase font-mono tracking-wider">Target Alert</span>
+              <span className="text-gold font-mono font-medium">
                 {formatPrice(product.target_price, product.currency)}
               </span>
             </div>
@@ -128,13 +125,13 @@ export function ProductCard({ product }: ProductCardProps) {
 
       {/* Footer controls & info */}
       <div>
-        <div className="flex items-center justify-between text-[11px] text-slate-500 mb-3 pt-2 border-t border-slate-800/60">
+        <div className="flex items-center justify-between text-[11px] text-champagne-faint mb-3 pt-2 border-t border-surface-border font-mono">
           <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3 text-slate-500" />
+            <Clock className="w-3 h-3 text-champagne-faint" />
             <span>Checked {formatRelativeTime(product.last_checked_at)}</span>
           </div>
           {product.check_status === 'error' && (
-            <span className="flex items-center gap-1 text-red-400" title={product.error_message || 'Check failed'}>
+            <span className="flex items-center gap-1 text-terracotta" title={product.error_message || 'Check failed'}>
               <AlertTriangle className="w-3 h-3" />
               Check Error
             </span>
@@ -144,18 +141,18 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="flex items-center gap-2">
           <Link
             href={`/product/${product.id}`}
-            className="flex-1 text-center bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold py-2.5 px-3 rounded-xl transition-colors"
+            className="flex-1 text-center bg-surface-subtle hover:bg-surface-hover border border-surface-border text-champagne text-xs font-medium py-2 px-3 rounded-sm transition-colors"
           >
-            History &amp; Alert
+            History &amp; Predictor
           </Link>
           <a
             href={product.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl transition-colors"
-            title="Buy on Store"
+            className="p-2 bg-gold/10 hover:bg-gold/20 text-gold border border-gold/30 rounded-sm transition-colors"
+            title="Open in Store"
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
       </div>

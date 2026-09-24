@@ -8,7 +8,6 @@ import {
   User,
   Mail,
   KeyRound,
-  Sparkles,
   ArrowRight,
   ShieldCheck,
   AlertCircle,
@@ -44,17 +43,15 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // If already logged in, redirect
   useEffect(() => {
     if (user) {
       router.replace(redirectUrl);
     }
   }, [user, redirectUrl, router]);
 
-  // Handle PIN input digit changes for signin
   const handlePinChange = (index: number, val: string) => {
     setError(null);
-    const cleaned = val.replace(/\D/g, ''); // Numbers only
+    const cleaned = val.replace(/\D/g, '');
 
     if (!cleaned) {
       const updated = [...signinPin];
@@ -63,16 +60,14 @@ function LoginForm() {
       return;
     }
 
-    const digit = cleaned.slice(-1); // Take last digit
+    const digit = cleaned.slice(-1);
     const updated = [...signinPin];
     updated[index] = digit;
     setSigninPin(updated);
 
-    // Auto-advance focus to next digit
     if (index < 3) {
       pinInputRefs[index + 1].current?.focus();
     } else {
-      // 4th digit entered: if email is filled, auto-submit
       const fullPin = updated.join('');
       if (fullPin.length === 4 && signinEmail.trim()) {
         executeSignin(signinEmail.trim(), fullPin);
@@ -185,37 +180,37 @@ function LoginForm() {
     signupEmail.trim().toLowerCase() === 'rahulr24g@gmail.com';
 
   return (
-    <div className="max-w-md mx-auto py-6 sm:py-12 px-2">
+    <div className="max-w-md mx-auto py-8 sm:py-14 px-2">
       {/* Brand Header */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 shadow-xl shadow-emerald-500/20 mb-4">
-          <KeyRound className="w-7 h-7 text-slate-950 stroke-[2.5]" />
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-sm bg-surface border border-gold/30 mb-3 text-gold">
+          <KeyRound className="w-6 h-6 stroke-[2]" />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
-          Price<span className="text-emerald-400">Watcher</span> Access
+        <h1 className="font-display text-2xl sm:text-3xl font-normal text-champagne tracking-tight">
+          PriceWatcher <span className="text-gold italic">Access</span>
         </h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1.5">
-          Fast, secure Email & PIN authentication with stateless session
+        <p className="text-xs text-champagne-faint mt-1 font-mono">
+          Stateless session with salted PBKDF2/SHA-256 PIN authentication
         </p>
       </div>
 
       {/* Main Card */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+      <div className="bg-surface border border-surface-border rounded-sm p-6 sm:p-8">
         {/* Mode Toggle Tabs */}
-        <div className="grid grid-cols-2 p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80 mb-6">
+        <div className="grid grid-cols-2 p-1 bg-obsidian rounded-sm border border-surface-border mb-6">
           <button
             type="button"
             onClick={() => {
               setMode('signin');
               setError(null);
             }}
-            className={`py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${
+            className={`py-2 text-xs font-mono uppercase tracking-wider transition-colors rounded-sm ${
               mode === 'signin'
-                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-gold text-obsidian font-semibold'
+                : 'text-champagne-muted hover:text-champagne'
             }`}
           >
-            Sign In (Email + PIN)
+            Sign In
           </button>
           <button
             type="button"
@@ -223,10 +218,10 @@ function LoginForm() {
               setMode('signup');
               setError(null);
             }}
-            className={`py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${
+            className={`py-2 text-xs font-mono uppercase tracking-wider transition-colors rounded-sm ${
               mode === 'signup'
-                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-gold text-obsidian font-semibold'
+                : 'text-champagne-muted hover:text-champagne'
             }`}
           >
             Sign Up
@@ -235,16 +230,16 @@ function LoginForm() {
 
         {/* Status Alerts */}
         {error && (
-          <div className="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-2.5 text-red-400 text-xs animate-in fade-in duration-200">
+          <div className="mb-5 p-3.5 rounded-sm bg-terracotta/10 border border-terracotta/30 flex items-start gap-2.5 text-terracotta text-xs">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <p className="leading-relaxed">{error}</p>
           </div>
         )}
 
         {successMsg && (
-          <div className="mb-5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-2.5 text-emerald-400 text-xs animate-in fade-in duration-200">
+          <div className="mb-5 p-3.5 rounded-sm bg-sage/10 border border-sage/30 flex items-start gap-2.5 text-sage text-xs">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <p className="leading-relaxed font-semibold">{successMsg}</p>
+            <p className="leading-relaxed font-medium">{successMsg}</p>
           </div>
         )}
 
@@ -252,11 +247,11 @@ function LoginForm() {
         {mode === 'signin' && (
           <form onSubmit={handleSigninSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-2">
+              <label className="block text-xs font-mono uppercase tracking-wider text-champagne-muted mb-2">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-champagne-faint" />
                 <input
                   type="email"
                   value={signinEmail}
@@ -264,17 +259,16 @@ function LoginForm() {
                   placeholder="your.email@example.com"
                   autoFocus
                   required
-                  className="w-full bg-slate-950/70 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  className="w-full bg-obsidian border border-surface-border rounded-sm pl-10 pr-4 py-2.5 text-xs sm:text-sm text-champagne placeholder:text-champagne-faint focus:outline-none focus:border-gold/50 transition-colors"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-300">
+              <label className="block text-xs font-mono uppercase tracking-wider text-champagne-muted">
                 4-Digit Security PIN
               </label>
-              {/* 4 Digit Boxes */}
-              <div className="flex justify-center gap-3 sm:gap-4 py-1">
+              <div className="flex justify-center gap-3 py-1">
                 {signinPin.map((digit, index) => (
                   <input
                     key={index}
@@ -287,7 +281,7 @@ function LoginForm() {
                     onChange={(e) => handlePinChange(index, e.target.value)}
                     onKeyDown={(e) => handlePinKeyDown(index, e)}
                     onPaste={handlePinPaste}
-                    className="w-12 h-14 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-black bg-slate-950/90 border border-slate-700/80 rounded-2xl text-slate-100 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all shadow-inner"
+                    className="w-12 h-14 text-center text-xl font-mono font-bold bg-obsidian border border-surface-border rounded-sm text-champagne focus:border-gold focus:outline-none transition-colors"
                   />
                 ))}
               </div>
@@ -296,16 +290,16 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isLoading || !signinEmail.trim() || signinPin.join('').length < 4}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-sm hover:from-emerald-400 hover:to-teal-400 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-sm bg-gold text-obsidian font-semibold text-xs sm:text-sm hover:bg-gold-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isLoading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-obsidian border-t-transparent rounded-full animate-spin" />
                   Verifying...
                 </>
               ) : (
                 <>
-                  Sign In <ArrowRight className="w-4 h-4" />
+                  Sign In <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
             </button>
@@ -316,45 +310,45 @@ function LoginForm() {
         {mode === 'signup' && (
           <form onSubmit={handleSignupSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-mono uppercase tracking-wider text-champagne-muted mb-1.5">
                 Your Name
               </label>
               <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-champagne-faint" />
                 <input
                   type="text"
                   value={signupName}
                   onChange={(e) => setSignupName(e.target.value)}
                   placeholder="e.g. Rahul"
                   required
-                  className="w-full bg-slate-950/70 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  className="w-full bg-obsidian border border-surface-border rounded-sm pl-10 pr-4 py-2.5 text-xs sm:text-sm text-champagne placeholder:text-champagne-faint focus:outline-none focus:border-gold/50 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-mono uppercase tracking-wider text-champagne-muted mb-1.5">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-champagne-faint" />
                 <input
                   type="email"
                   value={signupEmail}
                   onChange={(e) => setSignupEmail(e.target.value)}
                   placeholder="your.email@example.com"
                   required
-                  className="w-full bg-slate-950/70 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  className="w-full bg-obsidian border border-surface-border rounded-sm pl-10 pr-4 py-2.5 text-xs sm:text-sm text-champagne placeholder:text-champagne-faint focus:outline-none focus:border-gold/50 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-mono uppercase tracking-wider text-champagne-muted mb-1.5">
                 Set 4-6 Digit Security PIN
               </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-champagne-faint" />
                 <input
                   type="password"
                   inputMode="numeric"
@@ -364,19 +358,18 @@ function LoginForm() {
                   onChange={(e) => setSignupPin(e.target.value.replace(/\D/g, ''))}
                   placeholder="e.g. 1234 or 123456"
                   required
-                  className="w-full bg-slate-950/70 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors tracking-widest font-mono"
+                  className="w-full bg-obsidian border border-surface-border rounded-sm pl-10 pr-4 py-2.5 text-xs sm:text-sm text-champagne placeholder:text-champagne-faint focus:outline-none focus:border-gold/50 transition-colors tracking-widest font-mono"
                 />
               </div>
             </div>
 
-            {/* Special Combined Access Indicator */}
             {isSignupCombinedPreview && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-300 text-xs animate-in fade-in duration-200">
-                <Crown className="w-4 h-4 flex-shrink-0 text-amber-400 mt-0.5" />
+              <div className="p-3 rounded-sm bg-surface-subtle border border-gold/30 flex items-start gap-2.5 text-gold text-xs">
+                <Crown className="w-4 h-4 flex-shrink-0 text-gold mt-0.5" />
                 <div>
-                  <span className="font-semibold text-amber-200">Special Combined Access Detected!</span>
-                  <p className="text-[11px] text-amber-300/80 mt-0.5">
-                    Your account will automatically share a synchronized joint watchlist with your partner.
+                  <span className="font-semibold text-champagne">Special Combined Access Active</span>
+                  <p className="text-[11px] text-champagne-faint mt-0.5">
+                    Your account will automatically connect to the synchronized joint watchlist with your partner.
                   </p>
                 </div>
               </div>
@@ -385,16 +378,16 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isLoading || !signupName.trim() || !signupEmail.trim() || signupPin.length < 4}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-sm hover:from-emerald-400 hover:to-teal-400 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-sm bg-gold text-obsidian font-semibold text-xs sm:text-sm hover:bg-gold-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isLoading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-obsidian border-t-transparent rounded-full animate-spin" />
                   Creating Account...
                 </>
               ) : (
                 <>
-                  Create Account <Sparkles className="w-4 h-4" />
+                  Create Account <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
             </button>
@@ -402,15 +395,15 @@ function LoginForm() {
         )}
 
         {/* Security badges */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-center gap-4 text-[11px] text-slate-400">
+        <div className="mt-6 pt-5 border-t border-surface-border flex items-center justify-center gap-4 text-[10px] font-mono text-champagne-faint">
           <span className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <ShieldCheck className="w-3 h-3 text-gold" />
             PBKDF2/SHA-256 Salted
           </span>
           <span>•</span>
           <span className="flex items-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-teal-400" />
-            HTTP-Only Cookie
+            <Lock className="w-3 h-3 text-champagne-muted" />
+            HTTP-Only Stateless Cookie
           </span>
         </div>
       </div>
@@ -418,7 +411,7 @@ function LoginForm() {
       <div className="text-center mt-6">
         <Link
           href="/"
-          className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          className="text-xs font-mono text-champagne-faint hover:text-champagne transition-colors"
         >
           ← Return to PriceWatcher Home
         </Link>
@@ -432,7 +425,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="min-h-[50vh] flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-gold border-t-transparent rounded-full animate-spin" />
         </div>
       }
     >

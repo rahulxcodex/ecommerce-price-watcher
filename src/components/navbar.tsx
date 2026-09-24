@@ -7,7 +7,6 @@ import {
   PlusCircle,
   LayoutDashboard,
   Settings,
-  TrendingDown,
   Sparkles,
   Menu,
   X,
@@ -15,6 +14,7 @@ import {
   LogOut,
   Crown,
   User as UserIcon,
+  Compass,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -23,7 +23,6 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
 
-  // Automatically close mobile menu when navigating to another route
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
@@ -31,19 +30,25 @@ export function Navbar() {
   const links = [
     {
       href: '/dashboard',
-      label: 'Dashboard',
+      label: 'Watchlist',
       icon: LayoutDashboard,
-      desc: 'View tracked products & filters',
+      desc: 'Active price monitors & trends',
+    },
+    {
+      href: '/discover',
+      label: 'Discover',
+      icon: Compass,
+      desc: 'Search 10-15 products & smart filter',
     },
     {
       href: '/add',
-      label: 'Track Product',
+      label: 'Track URL',
       icon: PlusCircle,
-      desc: 'Add product link across 6 stores',
+      desc: 'Add custom product URL',
     },
     {
       href: '/settings',
-      label: 'Alert Settings',
+      label: 'Alerts',
       icon: Settings,
       desc: 'Telegram, WhatsApp, Push & Webhooks',
     },
@@ -51,34 +56,31 @@ export function Navbar() {
       href: '/extension',
       label: 'Extension',
       icon: Sparkles,
-      desc: '1-Click Chrome & Brave Companion',
+      desc: 'Browser companion for Chrome & Brave',
     },
   ];
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/90 border-b border-slate-800">
+    <header className="sticky top-0 z-50 backdrop-blur-md bg-obsidian/95 border-b border-surface-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform flex-shrink-0">
-              <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-slate-950 stroke-[2.5]" />
+          {/* Brand Logo in Editorial Instrument Serif */}
+          <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
+            <div className="w-8 h-8 rounded-sm bg-surface-subtle border border-gold/30 flex items-center justify-center flex-shrink-0 group-hover:border-gold transition-colors">
+              <span className="font-display text-gold text-lg leading-none">P</span>
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-base sm:text-lg text-slate-100 tracking-tight leading-none">
-                Price<span className="text-emerald-400">Watcher</span>
+              <span className="font-display text-xl sm:text-2xl text-champagne tracking-tight leading-none group-hover:text-champagne-light transition-colors">
+                Price<span className="text-gold italic font-normal">Watcher</span>
               </span>
-              <span className="hidden sm:block text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                Multi-Store Price Tracker • 6 Platforms
-              </span>
-              <span className="block sm:hidden text-[9px] text-emerald-400 font-semibold tracking-wider uppercase">
-                6 Stores Tracker
+              <span className="hidden sm:block text-[9px] text-champagne-faint uppercase tracking-widest font-mono font-medium mt-0.5">
+                Multi-Store Price Analytics • 6 Stores
               </span>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+          <nav className="hidden md:flex items-center gap-1 lg:gap-1.5">
             {links.map((link) => {
               const Icon = link.icon;
               const isActive = pathname === link.href;
@@ -86,46 +88,46 @@ export function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ${
                     isActive
-                      ? 'bg-slate-800 text-emerald-400 font-semibold shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      ? 'bg-surface-subtle text-champagne border border-gold/30'
+                      : 'text-champagne-muted hover:text-champagne hover:bg-surface-subtle/60'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-gold' : 'text-champagne-muted'}`} />
                   <span>{link.label}</span>
                 </Link>
               );
             })}
 
             <Link
-              href="/add"
-              className="ml-2 flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-3.5 py-1.5 rounded-lg text-sm transition-all shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30"
+              href="/discover"
+              className="ml-2 flex items-center gap-1.5 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-3 py-1.5 rounded-sm text-xs transition-colors shadow-none tracking-tight"
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>Add Link</span>
+              <Compass className="w-3.5 h-3.5" />
+              <span>Smart Search</span>
             </Link>
 
             {/* Desktop Auth Section */}
             {user ? (
-              <div className="ml-2 pl-2 border-l border-slate-800 flex items-center gap-2">
+              <div className="ml-2 pl-2 border-l border-surface-border flex items-center gap-1.5">
                 <div
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-semibold ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm border text-xs ${
                     user.isCombined
-                      ? 'bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border-amber-500/30 text-amber-300'
-                      : 'bg-slate-900 border-slate-800 text-slate-200'
+                      ? 'bg-surface-subtle border-gold/40 text-gold font-medium'
+                      : 'bg-surface border-surface-border text-champagne'
                   }`}
-                  title={user.isCombined ? 'Special Combined Access (Shared Space)' : `Signed in as ${user.name}`}
+                  title={user.isCombined ? 'Special Combined Access (Shared Watchlist)' : `Signed in as ${user.name}`}
                 >
                   {user.isCombined ? (
-                    <Crown className="w-3.5 h-3.5 text-amber-400" />
+                    <Crown className="w-3.5 h-3.5 text-gold" />
                   ) : (
-                    <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
+                    <UserIcon className="w-3.5 h-3.5 text-champagne-muted" />
                   )}
-                  <span>{user.name}</span>
+                  <span className="text-xs">{user.name}</span>
                   {user.isCombined && (
-                    <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded-full font-bold">
-                      Combined
+                    <span className="text-[9px] bg-gold/15 text-gold px-1 rounded-sm uppercase tracking-wider font-mono">
+                      Joint
                     </span>
                   )}
                 </div>
@@ -133,7 +135,7 @@ export function Navbar() {
                 <button
                   type="button"
                   onClick={() => logout()}
-                  className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-red-400 transition-colors"
+                  className="p-1.5 rounded-sm bg-surface hover:bg-surface-subtle border border-surface-border text-champagne-muted hover:text-terracotta transition-colors"
                   title="Sign Out"
                   aria-label="Sign Out"
                 >
@@ -143,34 +145,34 @@ export function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="ml-2 flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 font-semibold px-3 py-1.5 rounded-lg text-xs transition-all shadow-sm"
+                className="ml-2 flex items-center gap-1.5 bg-surface hover:bg-surface-subtle border border-surface-border text-champagne px-2.5 py-1.5 rounded-sm text-xs transition-colors"
               >
-                <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                <KeyRound className="w-3.5 h-3.5 text-gold" />
                 <span>Sign In</span>
               </Link>
             )}
           </nav>
 
-          {/* Mobile Right Controls: Compact Add Button + Auth + Hamburger Toggle */}
+          {/* Mobile Right Controls */}
           <div className="flex md:hidden items-center gap-2">
             <Link
-              href="/add"
-              className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-xs transition-all shadow-sm shadow-emerald-500/20"
-              aria-label="Add product link"
+              href="/discover"
+              className="flex items-center gap-1 bg-gold text-obsidian font-semibold px-2.5 py-1 rounded-sm text-xs transition-colors"
+              aria-label="Discover products"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Add</span>
+              <Compass className="w-3.5 h-3.5" />
+              <span>Search</span>
             </Link>
 
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-slate-100 hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              className="p-2 rounded-sm bg-surface border border-surface-border text-champagne hover:bg-surface-subtle transition-colors focus:outline-none"
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-menu-drawer"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5 text-emerald-400" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-5 h-5 text-gold" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -178,31 +180,31 @@ export function Navbar() {
 
       {/* Mobile Drawer Dropdown Menu */}
       {mobileMenuOpen && (
-        <div id="mobile-menu-drawer" className="md:hidden border-t border-slate-800 bg-slate-950/98 px-4 pt-3 pb-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-top-2 duration-150">
+        <div id="mobile-menu-drawer" className="md:hidden border-t border-surface-border bg-obsidian/98 px-4 pt-3 pb-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-top-2 duration-150">
           {/* User profile card on mobile */}
           {user ? (
-            <div className="mb-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
+            <div className="mb-3 p-3 rounded-sm bg-surface border border-surface-border flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm ${
+                  className={`w-8 h-8 rounded-sm flex items-center justify-center font-bold text-xs ${
                     user.isCombined
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      ? 'bg-gold/15 text-gold border border-gold/30'
+                      : 'bg-surface-subtle text-champagne border border-surface-border'
                   }`}
                 >
-                  {user.isCombined ? <Crown className="w-4 h-4 text-amber-400" /> : user.name[0]?.toUpperCase()}
+                  {user.isCombined ? <Crown className="w-4 h-4 text-gold" /> : user.name[0]?.toUpperCase()}
                 </div>
                 <div>
-                  <div className="font-semibold text-slate-100 text-xs flex items-center gap-1.5">
+                  <div className="font-medium text-champagne text-xs flex items-center gap-1.5">
                     <span>{user.name}</span>
                     {user.isCombined && (
-                      <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded-full font-bold">
-                        Combined
+                      <span className="text-[9px] bg-gold/15 text-gold px-1 rounded-sm uppercase tracking-wider font-mono">
+                        Joint
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-slate-400">
-                    {user.isCombined ? 'Shared Combined Space' : 'Active Account'}
+                  <span className="text-[10px] text-champagne-faint">
+                    {user.isCombined ? 'Shared Watchlist' : 'Personal Account'}
                   </span>
                 </div>
               </div>
@@ -212,7 +214,7 @@ export function Navbar() {
                   logout();
                   setMobileMenuOpen(false);
                 }}
-                className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-red-400 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/50 transition-colors"
+                className="flex items-center gap-1 text-[11px] text-champagne-muted hover:text-terracotta px-2 py-1 rounded-sm bg-surface-subtle border border-surface-border transition-colors"
               >
                 <LogOut className="w-3 h-3" />
                 <span>Sign Out</span>
@@ -222,10 +224,10 @@ export function Navbar() {
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
-              className="mb-3 flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-900 border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-slate-800 transition-colors shadow-sm"
+              className="mb-3 flex items-center justify-center gap-2 p-2.5 rounded-sm bg-surface border border-gold/30 text-champagne text-xs font-medium hover:bg-surface-subtle transition-colors"
             >
-              <KeyRound className="w-4 h-4" />
-              <span>Sign In with 4-Digit PIN</span>
+              <KeyRound className="w-4 h-4 text-gold" />
+              <span>Sign In with PIN</span>
             </Link>
           )}
 
@@ -238,40 +240,40 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
+                  className={`flex items-start gap-3 p-2.5 rounded-sm transition-colors ${
                     isActive
-                      ? 'bg-slate-800/80 text-emerald-400 border border-slate-700/60'
-                      : 'text-slate-300 hover:bg-slate-900 border border-transparent hover:text-slate-100'
+                      ? 'bg-surface text-champagne border border-gold/30'
+                      : 'text-champagne-muted hover:bg-surface/50 hover:text-champagne'
                   }`}
                 >
                   <div
-                    className={`p-2 rounded-lg mt-0.5 ${
+                    className={`p-1.5 rounded-sm mt-0.5 ${
                       isActive
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-slate-900 text-slate-400'
+                        ? 'bg-gold/15 text-gold'
+                        : 'bg-surface-subtle text-champagne-muted'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-semibold text-sm leading-tight flex items-center justify-between">
+                    <div className="font-medium text-xs flex items-center justify-between">
                       <span>{link.label}</span>
                       {isActive && (
-                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        <span className="text-[9px] text-gold font-mono uppercase bg-gold/10 px-1.5 py-0.2 rounded-sm">
                           Active
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5">{link.desc}</p>
+                    <p className="text-[11px] text-champagne-faint mt-0.5">{link.desc}</p>
                   </div>
                 </Link>
               );
             })}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 px-1">
-            <span>Free Tier Multi-Store Monitor</span>
-            <span className="text-emerald-400 font-medium">6 Platforms</span>
+          <div className="mt-4 pt-3 border-t border-surface-border flex items-center justify-between text-[11px] text-champagne-faint px-1">
+            <span>Automated 4-Hour Price Monitor</span>
+            <span className="text-gold font-mono">6 Platforms</span>
           </div>
         </div>
       )}

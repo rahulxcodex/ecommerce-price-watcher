@@ -22,14 +22,13 @@ interface PriceChartProps {
 export function PriceChart({ history, lowestPrice }: PriceChartProps) {
   if (!history || history.length === 0) {
     return (
-      <div className="h-64 flex flex-col items-center justify-center text-slate-500 bg-slate-900/50 rounded-xl border border-slate-800">
-        <p className="text-sm">No price history available yet.</p>
-        <p className="text-xs text-slate-600 mt-1">Price changes will be logged here every 6 hours.</p>
+      <div className="h-64 flex flex-col items-center justify-center text-champagne-faint bg-surface border border-surface-border rounded-sm">
+        <p className="text-sm font-medium">No price history recorded yet.</p>
+        <p className="text-xs text-champagne-faint mt-1 font-mono">Price checks occur automatically every 4 hours.</p>
       </div>
     );
   }
 
-  // Memoize chart data transformation to avoid re-computation on unrelated re-renders
   const { data, minPrice, maxPrice, padding } = useMemo(() => {
     const chartData = history.map((item) => {
       const d = new Date(item.recorded_at);
@@ -48,41 +47,41 @@ export function PriceChart({ history, lowestPrice }: PriceChartProps) {
   }, [history]);
 
   return (
-    <div className="w-full bg-slate-900/40 p-3.5 sm:p-4 rounded-xl border border-slate-800">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 sm:mb-4">
+    <div className="w-full bg-surface p-4 rounded-sm border border-surface-border">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-slate-200">Price Trend</h3>
-          <p className="text-[11px] sm:text-xs text-slate-400">Tracked over time</p>
+          <h3 className="font-display text-lg text-champagne">Price Trajectory</h3>
+          <p className="text-[11px] text-champagne-faint font-mono">Historical observations</p>
         </div>
-        <div className="flex items-center gap-3 text-[11px] sm:text-xs">
+        <div className="flex items-center gap-3 text-[11px] font-mono">
           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-0.5 bg-emerald-400" />
-            <span className="text-slate-400">Price</span>
+            <div className="w-2.5 h-0.5 bg-gold" />
+            <span className="text-champagne-muted">Recorded Price</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-0.5 bg-amber-400 border-dashed" />
-            <span className="text-slate-400">All-time Low</span>
+            <div className="w-2.5 h-0.5 bg-sage border-dashed" />
+            <span className="text-champagne-muted">All-Time Low</span>
           </div>
         </div>
       </div>
 
       <div className="h-60 sm:h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 10, right: 8, left: -15, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <LineChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="2 2" stroke="rgba(255, 255, 255, 0.04)" />
             <XAxis
               dataKey="date"
-              stroke="#64748b"
+              stroke="#5C564D"
               fontSize={10}
               tickLine={false}
-              axisLine={{ stroke: '#334155' }}
+              axisLine={{ stroke: 'rgba(255, 255, 255, 0.08)' }}
             />
             <YAxis
-              stroke="#64748b"
+              stroke="#5C564D"
               fontSize={10}
               width={50}
               tickLine={false}
-              axisLine={{ stroke: '#334155' }}
+              axisLine={{ stroke: 'rgba(255, 255, 255, 0.08)' }}
               domain={[Math.max(0, Math.floor(minPrice - padding)), Math.ceil(maxPrice + padding)]}
               tickFormatter={(v) => `₹${v}`}
             />
@@ -91,9 +90,11 @@ export function PriceChart({ history, lowestPrice }: PriceChartProps) {
                 if (active && payload && payload.length) {
                   const val = payload[0].value as number;
                   return (
-                    <div className="bg-slate-900 border border-slate-700 p-2.5 rounded-lg shadow-xl text-xs">
-                      <p className="text-slate-400 mb-1">{payload[0].payload.rawDate ? new Date(payload[0].payload.rawDate).toLocaleString('en-IN') : payload[0].payload.date}</p>
-                      <p className="font-bold text-emerald-400 text-sm">
+                    <div className="bg-obsidian border border-surface-border p-2.5 rounded-sm shadow-2xl text-xs">
+                      <p className="text-champagne-faint mb-1 font-mono text-[10px]">
+                        {payload[0].payload.rawDate ? new Date(payload[0].payload.rawDate).toLocaleString('en-IN') : payload[0].payload.date}
+                      </p>
+                      <p className="font-display text-lg text-gold font-normal">
                         {formatPrice(val)}
                       </p>
                     </div>
@@ -105,11 +106,11 @@ export function PriceChart({ history, lowestPrice }: PriceChartProps) {
             {lowestPrice > 0 && (
               <ReferenceLine
                 y={lowestPrice}
-                stroke="#f59e0b"
-                strokeDasharray="4 4"
+                stroke="#6B8F71"
+                strokeDasharray="3 3"
                 label={{
-                  value: `Lowest: ₹${lowestPrice}`,
-                  fill: '#f59e0b',
+                  value: `Low: ₹${lowestPrice}`,
+                  fill: '#6B8F71',
                   fontSize: 10,
                   position: 'insideBottomRight',
                 }}
@@ -118,10 +119,10 @@ export function PriceChart({ history, lowestPrice }: PriceChartProps) {
             <Line
               type="monotone"
               dataKey="price"
-              stroke="#10b981"
-              strokeWidth={2.5}
-              dot={{ r: 3, fill: '#10b981', stroke: '#064e3b', strokeWidth: 1 }}
-              activeDot={{ r: 6, fill: '#34d399' }}
+              stroke="#C4A265"
+              strokeWidth={2}
+              dot={{ r: 2.5, fill: '#C4A265', stroke: '#141516', strokeWidth: 1 }}
+              activeDot={{ r: 5, fill: '#E6D5B8' }}
             />
           </LineChart>
         </ResponsiveContainer>

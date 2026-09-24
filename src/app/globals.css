@@ -3,40 +3,65 @@
 @tailwind utilities;
 
 :root {
-  --background: #090d16;
-  --foreground: #f1f5f9;
+  --background: #0C0D0E;
+  --foreground: #E6D5B8;
+  --surface: #141516;
+  --gold: #C4A265;
+  --muted: #A0998C;
 }
 
 html {
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
+  background: #0C0D0E;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: #A0998C;
+  background: #0C0D0E;
   min-height: 100vh;
   overflow-x: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.015em;
+  position: relative;
 }
 
-/* Custom scrollbar */
+/* Subtle tactile film grain overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('/grain.svg');
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Editorial typography hierarchy */
+h1, h2, h3, .font-editorial {
+  font-family: 'Instrument Serif', Georgia, serif;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* Restrained minimalist scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #0C0D0E;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  background: #232528;
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #36393E;
 }
 
-/* Hide scrollbar for touch chips & horizontal pills */
+/* Utility to hide scrollbars for touch rails */
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;

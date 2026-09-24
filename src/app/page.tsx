@@ -4,14 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  TrendingDown,
-  BellRing,
-  ShieldCheck,
-  Zap,
   ArrowRight,
   Sparkles,
   CheckCircle2,
-  Lock,
+  Compass,
+  ShieldCheck,
+  TrendingDown,
+  Clock,
+  Layers,
 } from 'lucide-react';
 import { PlatformBadge } from '@/components/platform-badge';
 
@@ -27,52 +27,66 @@ export default function HomePage() {
   };
 
   return (
-    <div className="space-y-12 sm:space-y-20 py-2 sm:py-4">
+    <div className="space-y-16 sm:space-y-24 py-4 sm:py-8">
       {/* Hero Section */}
-      <section className="relative text-center max-w-4xl mx-auto space-y-4 sm:space-y-6 pt-4 sm:pt-8">
-        <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] sm:text-xs font-semibold max-w-full">
-          <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>100% Free • Amazon • Flipkart • Meesho • Myntra • Ajio • Westside</span>
+      <section className="relative text-center max-w-4xl mx-auto space-y-5 sm:space-y-7 pt-4 sm:pt-10">
+        <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-sm bg-surface border border-surface-border text-champagne text-[11px] font-mono tracking-wide">
+          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+          <span>Multi-Store Price Intelligence • 6 Storefronts</span>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-100 leading-tight">
-          Paste any link. <br />
-          Get alerted at{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
+        <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-normal tracking-tight text-champagne leading-[1.02]">
+          Track any product. <br />
+          Capture the{' '}
+          <span className="text-gold italic font-normal">
             All-Time Lowest Price.
           </span>
         </h1>
 
-        <p className="text-sm sm:text-base md:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed px-2">
-          Stop constantly refreshing product pages. Paste a link from Amazon, Flipkart, Meesho, Myntra, Ajio, or Westside.
-          Our automated GitHub Actions tracker checks prices 4× daily and pings your Telegram immediately when prices drop.
+        <p className="text-sm sm:text-base md:text-lg text-champagne-muted max-w-2xl mx-auto leading-relaxed px-2 font-normal">
+          Automated multi-store price monitoring with ordinary least squares trajectory forecasting and Pareto optimization. 
+          Checks prices every 4 hours and sends immediate alerts to your Telegram, WhatsApp, or Webhooks.
         </p>
 
-        {/* Quick URL Input Bar */}
-        <form
-          onSubmit={handleQuickSubmit}
-          className="max-w-2xl mx-auto mt-6 sm:mt-8 flex flex-col sm:flex-row items-center gap-2 bg-slate-900/90 p-1.5 sm:p-2 rounded-2xl border border-slate-800 shadow-2xl shadow-emerald-500/5 focus-within:border-emerald-500/50 transition-colors"
-        >
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="Paste product link (Amazon, Flipkart, Meesho, Myntra, Ajio, Westside)..."
-            required
-            className="w-full bg-transparent px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-6 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap"
+        {/* Quick URL Input Bar & Discover Link */}
+        <div className="max-w-2xl mx-auto mt-6 space-y-3">
+          <form
+            onSubmit={handleQuickSubmit}
+            className="flex flex-col sm:flex-row items-center gap-2 bg-surface p-1.5 rounded-sm border border-surface-border focus-within:border-gold/50 transition-colors"
           >
-            <span>Track Now</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </form>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="Paste product link from Amazon, Flipkart, Meesho, Myntra, Ajio, Westside..."
+              required
+              className="w-full bg-transparent px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-champagne placeholder:text-champagne-faint focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-5 py-2.5 rounded-sm text-xs sm:text-sm transition-colors whitespace-nowrap"
+            >
+              <span>Track URL</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </form>
+
+          {/* Quick Discover CTA */}
+          <div className="flex items-center justify-center gap-2 text-xs text-champagne-faint pt-1">
+            <span>Don&apos;t have a direct link?</span>
+            <Link
+              href="/discover"
+              className="text-gold hover:underline inline-flex items-center gap-1 font-medium"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Search products with Smart Filtering →</span>
+            </Link>
+          </div>
+        </div>
 
         {/* Supported Platforms Strip */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-2 sm:pt-3">
-          <span className="text-[11px] sm:text-xs text-slate-500">Supported:</span>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
+          <span className="text-[11px] font-mono text-champagne-faint uppercase tracking-wider">Stores:</span>
           <PlatformBadge platform="amazon" />
           <PlatformBadge platform="flipkart" />
           <PlatformBadge platform="meesho" />
@@ -82,112 +96,96 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* 3 Pillars Architecture */}
       <section className="max-w-5xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-100">How It Works</h2>
-          <p className="text-slate-400 text-sm mt-1">Zero monthly cost, powered by free open-source infrastructure</p>
+        <div className="text-center mb-10">
+          <h2 className="font-display text-3xl sm:text-4xl text-champagne">Decision Science &amp; Automation</h2>
+          <p className="text-champagne-faint text-xs sm:text-sm mt-1.5 font-mono">
+            Mathematical price modeling • 4-hour background cycle
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-lg mb-4">
-              1
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="bg-surface border border-surface-border p-6 rounded-sm relative group hover:border-gold/30 transition-colors">
+            <div className="w-10 h-10 rounded-sm bg-surface-subtle border border-surface-border flex items-center justify-center text-gold font-mono text-sm mb-4">
+              01
             </div>
-            <h3 className="font-semibold text-slate-200 text-base mb-2">Paste Product Link</h3>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              Drop any item link from Amazon, Flipkart, Meesho, Myntra, Ajio, or Westside. We automatically fetch the current price, title, and initial snapshot.
+            <h3 className="font-display text-xl text-champagne mb-2">Discovery &amp; Search</h3>
+            <p className="text-champagne-muted text-xs leading-relaxed">
+              Explore 10–15 candidate products across any storefront. Multi-objective Pareto frontier filtering isolates non-dominated price-to-rating options.
             </p>
           </div>
 
-          <div className="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 font-bold text-lg mb-4">
-              2
+          <div className="bg-surface border border-surface-border p-6 rounded-sm relative group hover:border-gold/30 transition-colors">
+            <div className="w-10 h-10 rounded-sm bg-surface-subtle border border-surface-border flex items-center justify-center text-gold font-mono text-sm mb-4">
+              02
             </div>
-            <h3 className="font-semibold text-slate-200 text-base mb-2">Automated Background Checks</h3>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              GitHub Actions runs on a recurring schedule (every 6 hours) on free serverless runners to check the live prices of your products.
+            <h3 className="font-display text-xl text-champagne mb-2">Automated 4-Hour Cron</h3>
+            <p className="text-champagne-muted text-xs leading-relaxed">
+              GitHub Actions schedules continuous extractions every 4 hours with exponential jitter backoff and SSRF loopback defense.
             </p>
           </div>
 
-          <div className="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold text-lg mb-4">
-              3
+          <div className="bg-surface border border-surface-border p-6 rounded-sm relative group hover:border-gold/30 transition-colors">
+            <div className="w-10 h-10 rounded-sm bg-surface-subtle border border-surface-border flex items-center justify-center text-gold font-mono text-sm mb-4">
+              03
             </div>
-            <h3 className="font-semibold text-slate-200 text-base mb-2">Instant Telegram Alert</h3>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              The moment an item hits its all-time lowest price (or your custom target price), a Telegram notification arrives directly on your phone.
+            <h3 className="font-display text-xl text-champagne mb-2">Predictive Decision Alerts</h3>
+            <p className="text-champagne-muted text-xs leading-relaxed">
+              Ordinary Least Squares slope analysis and optimal stopping theory (Secretary problem) decide optimal purchase timing with multi-channel alerts.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Security & Reliability Features */}
-      <section className="max-w-5xl mx-auto bg-gradient-to-b from-slate-900/60 to-slate-950 border border-slate-800 p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
+      {/* Security & System Reliability */}
+      <section className="max-w-5xl mx-auto bg-surface border border-surface-border p-6 sm:p-8 rounded-sm">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 pb-6 border-b border-surface-border">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Built-in Security Architecture</span>
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-gold mb-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Security &amp; Rate-Limiting</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Enterprise Security on Free Infrastructure</h2>
+            <h2 className="font-display text-2xl sm:text-3xl text-champagne">Defensive Engineering Standards</h2>
           </div>
           <Link
             href="/dashboard"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors border border-slate-700"
+            className="flex items-center justify-center gap-2 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-champagne px-4 py-2 rounded-sm text-xs transition-colors"
           >
-            <span>Open Dashboard</span>
+            <span>Open Watchlist</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-slate-200">SSRF Defense</p>
-              <p className="text-slate-400 mt-0.5">Strict hostname whitelist & private IP blocking prevent internal network probes.</p>
-            </div>
+          <div className="p-3.5 rounded-sm bg-obsidian border border-surface-border">
+            <p className="font-medium text-champagne">SSRF Loopback Defense</p>
+            <p className="text-champagne-faint text-[11px] mt-1">Strict domain whitelists and private octal/hex IP blocking protect against internal network probes.</p>
           </div>
 
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-slate-200">Price Anomaly Detection</p>
-              <p className="text-slate-400 mt-0.5">Protects against 0-rupee glitches and selector breakage hallucinations.</p>
-            </div>
+          <div className="p-3.5 rounded-sm bg-obsidian border border-surface-border">
+            <p className="font-medium text-champagne">Sliding Rate Limiter</p>
+            <p className="text-champagne-faint text-[11px] mt-1">Search requests are strictly rate-limited to 5 requests per minute with automated Retry-After headers.</p>
           </div>
 
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-slate-200">Supabase Row-Level Security</p>
-              <p className="text-slate-400 mt-0.5">Database policies restrict read/write access strictly to verified owners.</p>
-            </div>
+          <div className="p-3.5 rounded-sm bg-obsidian border border-surface-border">
+            <p className="font-medium text-champagne">Row-Level Security (RLS)</p>
+            <p className="text-champagne-faint text-[11px] mt-1">PostgreSQL RLS locks down personal credentials and isolates user watchlist entries.</p>
           </div>
 
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-slate-200">Anti-Scrape Evasion</p>
-              <p className="text-slate-400 mt-0.5">Polite pacing, randomized User-Agents, and dual HTTP + Playwright fallback.</p>
-            </div>
+          <div className="p-3.5 rounded-sm bg-obsidian border border-surface-border">
+            <p className="font-medium text-champagne">Pareto Frontier Optimizer</p>
+            <p className="text-champagne-faint text-[11px] mt-1">Multi-objective algorithms calculate non-dominated deals balancing price, discount, and ratings.</p>
           </div>
 
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-slate-200">Webhook Token Authentication</p>
-              <p className="text-slate-400 mt-0.5">Constant-time verification prevents spoofed Telegram notification callbacks.</p>
-            </div>
+          <div className="p-3.5 rounded-sm bg-obsidian border border-surface-border">
+            <p className="font-medium text-champagne">Optimal Stopping Theory</p>
+            <p className="text-champagne-faint text-[11px] mt-1">1/e statistical cutoff rules compute buy vs. wait probabilities from log-normal price volatility.</p>
           </div>
 
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-slate-200">Zero Server Cost</p>
-              <p className="text-slate-400 mt-0.5">Runs comfortably within Vercel, Supabase, and GitHub Actions free tiers.</p>
-            </div>
+          <div className="p-3.5 rounded-sm bg-obsidian border border-surface-border">
+            <p className="font-medium text-champagne">5-Channel Alert Dispatcher</p>
+            <p className="text-champagne-faint text-[11px] mt-1">Real-time dispatches across Telegram, WhatsApp, Discord, ntfy.sh, and Email via Google Apps Script.</p>
           </div>
         </div>
       </section>
