@@ -90,8 +90,8 @@ export async function POST(req: NextRequest) {
       db = supabase;
     }
 
-    // Default user ID for personal instance
-    const defaultUserId = '00000000-0000-0000-0000-000000000001';
+    // Default user ID for personal instance (null allows anonymous tracking without FK violation)
+    const defaultUserId = body.userId || null;
 
     // 2. Check if product already tracked
     const { data: existing } = await db
