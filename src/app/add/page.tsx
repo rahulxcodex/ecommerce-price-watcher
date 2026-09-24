@@ -2,15 +2,17 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PlusCircle, Loader2, ArrowLeft, CheckCircle, AlertCircle, Info, Sparkles } from 'lucide-react';
+import { PlusCircle, Loader2, ArrowLeft, CheckCircle, AlertCircle, Info, Sparkles, Crown, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { PlatformBadge } from '@/components/platform-badge';
 import { deriveTitleFromUrl, validateAndSanitizeUrl } from '@/lib/security';
 import { Platform } from '@/types';
+import { useAuth } from '@/contexts/auth-context';
 
 function AddProductForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
 
   const [url, setUrl] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
@@ -137,6 +139,36 @@ function AddProductForm() {
             <p className="text-xs text-slate-400">Add any Amazon, Flipkart, Meesho, Myntra, Ajio, or Westside item link</p>
           </div>
         </div>
+
+        {user ? (
+          <div className="mb-6 p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              {user.isCombined ? (
+                <Crown className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              ) : (
+                <UserIcon className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              )}
+              <span className="text-slate-300">
+                Tracking as <span className="font-bold text-slate-100">{user.name}</span>
+                {user.isCombined && (
+                  <span className="ml-1.5 text-[10px] bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                    Combined Shared Space
+                  </span>
+                )}
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-500 hidden sm:inline">Auto-synced</span>
+          </div>
+        ) : (
+          <div className="mb-6 p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between text-xs">
+            <span className="text-slate-400">
+              Tracking as guest. Want private or Combined Access?
+            </span>
+            <Link href="/login" className="text-emerald-400 hover:underline font-semibold ml-2">
+              Sign In with PIN
+            </Link>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-400 text-xs">

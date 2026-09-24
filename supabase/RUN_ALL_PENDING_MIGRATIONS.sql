@@ -67,3 +67,32 @@ CREATE POLICY "Public can view household settings" ON public.household_settings 
 
 DROP POLICY IF EXISTS "Public can update household settings" ON public.household_settings;
 CREATE POLICY "Public can update household settings" ON public.household_settings FOR ALL USING (true) WITH CHECK (true);
+
+-- 5. Support PIN Authentication and Combined Access (Migration 007)
+CREATE TABLE IF NOT EXISTS public.app_users (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  pin_hash text NOT NULL,
+  pin_salt text NOT NULL,
+  is_combined boolean DEFAULT false NOT NULL,
+  role text DEFAULT 'user' NOT NULL,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_users_is_combined ON public.app_users(is_combined);
+
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS created_by_name text;
+
+ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can view app users" ON public.app_users;
+CREATE POLICY "Public can view app users" ON public.app_users FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public can insert app users" ON public.app_users;
+CREATE POLICY "Public can insert app users" ON public.app_users FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public can update app users" ON public.app_users;
+CREATE POLICY "Public can update app users" ON public.app_users FOR UPDATE USING (true) WITH CHECK (true);
+

@@ -7,6 +7,7 @@ import { scrapeMeesho } from '@scripts/scrapers/meesho';
 import { scrapeMyntra } from '@scripts/scrapers/myntra';
 import { scrapeAjio } from '@scripts/scrapers/ajio';
 import { scrapeWestside } from '@scripts/scrapers/westside';
+import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,8 +32,8 @@ function corsResponse(body: unknown, init?: ResponseInit) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId') || '00000000-0000-0000-0000-000000000000';
+    const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const session = verifySessionToken(token || '');
 
     let db;
     try {
@@ -41,16 +42,24 @@ export async function GET(req: NextRequest) {
       db = supabase;
     }
 
-    const { data: products, error } = await db
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let query = db.from('products').select('*');
+
+    // If logged in as regular user (not combined access), restrict to user's products
+    if (session && !session.isCombined) {
+      query = query.eq('user_id', session.userId);
+    }
+
+    const { data: products, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       return corsResponse({ error: error.message }, { status: 500 });
     }
 
-    return corsResponse({ products });
+    return corsResponse({
+      products,
+      isCombinedAccess: session?.isCombined || false,
+      user: session ? { id: session.userId, name: session.name, isCombined: session.isCombined } : null,
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return corsResponse({ error: msg }, { status: 500 });
@@ -90,8 +99,11 @@ export async function POST(req: NextRequest) {
       db = supabase;
     }
 
-    // Default user ID for personal instance (null allows anonymous tracking without FK violation)
-    const defaultUserId = body.userId || null;
+    // Extract user from session cookie
+    const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const session = verifySessionToken(token || '');
+    const defaultUserId = session?.userId || body.userId || null;
+    const createdByName = session?.name || body.createdByName || null;
 
     // 2. Check if product already tracked
     const { data: existing } = await db
@@ -171,6 +183,7 @@ export async function POST(req: NextRequest) {
     // 5. Insert new product (with graceful schema cache fallback)
     const insertPayload: Record<string, unknown> = {
       user_id: defaultUserId,
+      created_by_name: createdByName,
       url: cleanUrl,
       platform,
       title,
@@ -198,6 +211,7 @@ export async function POST(req: NextRequest) {
     if (insertError) {
       const isSchemaCacheError =
         insertError.message.includes('schema cache') ||
+        insertError.message.includes('created_by_name') ||
         insertError.message.includes('bank_offers') ||
         insertError.message.includes('selected_size') ||
         insertError.message.includes('selected_color') ||

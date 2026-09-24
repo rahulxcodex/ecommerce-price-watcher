@@ -11,11 +11,17 @@ import {
   Sparkles,
   Menu,
   X,
+  KeyRound,
+  LogOut,
+  Crown,
+  User as UserIcon,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   // Automatically close mobile menu when navigating to another route
   useEffect(() => {
@@ -99,9 +105,53 @@ export function Navbar() {
               <PlusCircle className="w-4 h-4" />
               <span>Add Link</span>
             </Link>
+
+            {/* Desktop Auth Section */}
+            {user ? (
+              <div className="ml-2 pl-2 border-l border-slate-800 flex items-center gap-2">
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-semibold ${
+                    user.isCombined
+                      ? 'bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border-amber-500/30 text-amber-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-200'
+                  }`}
+                  title={user.isCombined ? 'Special Combined Access (Shared Space)' : `Signed in as ${user.name}`}
+                >
+                  {user.isCombined ? (
+                    <Crown className="w-3.5 h-3.5 text-amber-400" />
+                  ) : (
+                    <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                  <span>{user.name}</span>
+                  {user.isCombined && (
+                    <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded-full font-bold">
+                      Combined
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-red-400 transition-colors"
+                  title="Sign Out"
+                  aria-label="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="ml-2 flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 font-semibold px-3 py-1.5 rounded-lg text-xs transition-all shadow-sm"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Sign In</span>
+              </Link>
+            )}
           </nav>
 
-          {/* Mobile Right Controls: Compact Add Button + Hamburger Toggle */}
+          {/* Mobile Right Controls: Compact Add Button + Auth + Hamburger Toggle */}
           <div className="flex md:hidden items-center gap-2">
             <Link
               href="/add"
@@ -128,6 +178,56 @@ export function Navbar() {
       {/* Mobile Drawer Dropdown Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-800 bg-slate-950/98 px-4 pt-3 pb-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-top-2 duration-150">
+          {/* User profile card on mobile */}
+          {user ? (
+            <div className="mb-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm ${
+                    user.isCombined
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  }`}
+                >
+                  {user.isCombined ? <Crown className="w-4 h-4 text-amber-400" /> : user.name[0]?.toUpperCase()}
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-100 text-xs flex items-center gap-1.5">
+                    <span>{user.name}</span>
+                    {user.isCombined && (
+                      <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded-full font-bold">
+                        Combined
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400">
+                    {user.isCombined ? 'Shared Combined Space' : 'Active Account'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-red-400 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/50 transition-colors"
+              >
+                <LogOut className="w-3 h-3" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="mb-3 flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-900 border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-slate-800 transition-colors shadow-sm"
+            >
+              <KeyRound className="w-4 h-4" />
+              <span>Sign In with 4-Digit PIN</span>
+            </Link>
+          )}
+
           <div className="space-y-1">
             {links.map((link) => {
               const Icon = link.icon;

@@ -189,6 +189,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <PlatformBadge platform={product.platform} />
+                {product.created_by_name && (
+                  <span
+                    className="text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  >
+                    {product.created_by_name.toLowerCase().includes('rahul') ||
+                    product.created_by_name.toLowerCase().includes('nisha')
+                      ? 'Shared Space'
+                      : 'Personal'}
+                  </span>
+                )}
                 {isAllTimeLow && (
                   <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold px-2.5 py-0.5 rounded-full">
                     🔥 ALL-TIME LOW

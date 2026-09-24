@@ -22,6 +22,7 @@ export interface Product {
   notes?: string | null;
   last_alerted_price?: number | null;
   bank_offers?: BankOffer[];
+  created_by_name?: string | null;
   created_at: string;
   updated_at: string;
 }

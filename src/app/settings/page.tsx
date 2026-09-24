@@ -20,8 +20,10 @@ import {
   Download,
   Info,
   RotateCcw,
+  Crown,
 } from 'lucide-react';
 import { AppSettings } from '@/types';
+import { useAuth } from '@/contexts/auth-context';
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -35,6 +37,7 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isPushLoading, setIsPushLoading] = useState(false);
@@ -388,6 +391,18 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {user?.isCombined && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 flex items-center gap-3 text-amber-300 text-xs shadow-md">
+          <Crown className="w-5 h-5 text-amber-400 flex-shrink-0" />
+          <div>
+            <span className="font-bold text-amber-300">Special Combined Settings (Shared Space):</span>
+            <p className="text-[11px] text-slate-300 mt-0.5">
+              These notification channels will alert connected accounts in this shared space when tracked items drop in price.
+            </p>
+          </div>
+        </div>
+      )}
+
       {statusMessage && (
         <div
           className={`p-4 rounded-xl text-xs flex items-center gap-2.5 border ${
@@ -688,7 +703,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.ntfy_topic || ''}
               onChange={(e) => setSettings({ ...settings, ntfy_topic: e.target.value })}
-              placeholder="e.g. pw-deals-rahul992"
+              placeholder="e.g. pw-deals-tracker992"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50"
             />
             <p className="text-[10px] text-slate-500 mt-1.5">

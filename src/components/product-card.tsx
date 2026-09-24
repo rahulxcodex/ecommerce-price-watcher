@@ -26,7 +26,19 @@ export function ProductCard({ product }: ProductCardProps) {
       <div>
         {/* Header with platform & status badges */}
         <div className="flex items-center justify-between gap-1.5 mb-3 flex-wrap">
-          <PlatformBadge platform={product.platform} />
+          <div className="flex items-center gap-1.5">
+            <PlatformBadge platform={product.platform} />
+            {product.created_by_name && (
+              <span
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              >
+                {product.created_by_name.toLowerCase().includes('rahul') ||
+                product.created_by_name.toLowerCase().includes('nisha')
+                  ? 'Shared Space'
+                  : 'Personal'}
+              </span>
+            )}
+          </div>
 
           {isOutOfStock ? (
             <span className="inline-flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-bold px-2 py-0.5 rounded-full">

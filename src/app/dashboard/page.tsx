@@ -12,11 +12,16 @@ import {
   AlertCircle,
   Flame,
   Download,
+  Crown,
+  KeyRound,
+  Users,
 } from 'lucide-react';
 import { Product, Platform } from '@/types';
 import { ProductCard } from '@/components/product-card';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +31,7 @@ export default function DashboardPage() {
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
   const [onlyAllTimeLow, setOnlyAllTimeLow] = useState(false);
   const [sortBy, setSortBy] = useState<'recent' | 'discount' | 'price_asc'>('recent');
+  const [creatorFilter, setCreatorFilter] = useState<'all' | 'mine' | 'partner'>('all');
 
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -47,15 +53,25 @@ export default function DashboardPage() {
     fetchProducts();
   }, []);
 
+  const isCurrentUserFirstPartner = Boolean(user?.name?.toLowerCase().includes('rahul'));
+
   // Filter & sort logic (memoized to avoid re-computation on unrelated re-renders)
   const filteredProducts = useMemo(() =>
     products.filter((p) => {
       const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
       const matchesPlatform = selectedPlatform === 'all' || p.platform === selectedPlatform;
       const matchesLow = onlyAllTimeLow ? p.current_price <= p.lowest_price && p.lowest_price > 0 && p.highest_price > p.current_price : true;
-      return matchesSearch && matchesPlatform && matchesLow;
+      const isFirstPartner = Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
+      const isSecondPartner = Boolean(p.created_by_name?.toLowerCase().includes('nisha'));
+      const matchesCreator =
+        creatorFilter === 'all'
+          ? true
+          : creatorFilter === 'mine'
+          ? (isCurrentUserFirstPartner ? isFirstPartner : isSecondPartner)
+          : (isCurrentUserFirstPartner ? isSecondPartner : isFirstPartner);
+      return matchesSearch && matchesPlatform && matchesLow && matchesCreator;
     }),
-    [products, search, selectedPlatform, onlyAllTimeLow]
+    [products, search, selectedPlatform, onlyAllTimeLow, creatorFilter, isCurrentUserFirstPartner]
   );
 
   const sortedProducts = useMemo(() =>
@@ -77,6 +93,22 @@ export default function DashboardPage() {
     ).length,
     [products]
   );
+
+  const myCount = useMemo(() => {
+    return products.filter((p) => {
+      const isFirst = Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
+      const isSecond = Boolean(p.created_by_name?.toLowerCase().includes('nisha'));
+      return isCurrentUserFirstPartner ? isFirst : isSecond;
+    }).length;
+  }, [products, isCurrentUserFirstPartner]);
+
+  const partnerCount = useMemo(() => {
+    return products.filter((p) => {
+      const isFirst = Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
+      const isSecond = Boolean(p.created_by_name?.toLowerCase().includes('nisha'));
+      return isCurrentUserFirstPartner ? isSecond : isFirst;
+    }).length;
+  }, [products, isCurrentUserFirstPartner]);
 
   const exportData = (format: 'csv' | 'json') => {
     if (products.length === 0) return;
@@ -154,6 +186,79 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Special Combined Access Banner */}
+      {user?.isCombined ? (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
+              <Crown className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-sm sm:text-base text-amber-300">
+                  Special Combined Access Active
+                </h2>
+                <span className="text-[10px] bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                  Shared Space
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Unified joint watchlist: products and price drops across connected accounts are merged in this shared space.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Filter between Mine & Partner */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80 self-start sm:self-auto text-xs">
+            <button
+              onClick={() => setCreatorFilter('all')}
+              className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                creatorFilter === 'all'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              All Items ({products.length})
+            </button>
+            <button
+              onClick={() => setCreatorFilter('mine')}
+              className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                creatorFilter === 'mine'
+                  ? 'bg-emerald-500 text-slate-950 font-bold shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Mine ({myCount})
+            </button>
+            <button
+              onClick={() => setCreatorFilter('partner')}
+              className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                creatorFilter === 'partner'
+                  ? 'bg-pink-500 text-slate-950 font-bold shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Partner ({partnerCount})
+            </button>
+          </div>
+        </div>
+      ) : !user ? (
+        <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-300">
+            <KeyRound className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <span>
+              Sign in with your 4-digit PIN for private tracking or Combined Access.
+            </span>
+          </div>
+          <Link
+            href="/login"
+            className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-lg transition-colors text-xs"
+          >
+            Sign In
+          </Link>
+        </div>
+      ) : null}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col gap-3">
