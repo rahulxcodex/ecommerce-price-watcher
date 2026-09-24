@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const incomingHeader = req.headers.get('x-telegram-bot-api-secret-token');
 
     // Security: Verify secret token to prevent spoofed webhook calls
-    if (secret && incomingHeader && !safeCompare(secret, incomingHeader)) {
+    if (secret && (!incomingHeader || !safeCompare(secret, incomingHeader))) {
       return NextResponse.json({ error: 'Unauthorized webhook request.' }, { status: 401 });
     }
 

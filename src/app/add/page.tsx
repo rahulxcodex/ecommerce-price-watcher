@@ -13,6 +13,8 @@ function AddProductForm() {
 
   const [url, setUrl] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
+  const [notes, setNotes] = useState('');
   const [detectedPlatform, setDetectedPlatform] = useState<Platform | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +67,8 @@ function AddProductForm() {
         body: JSON.stringify({
           url: url.trim(),
           targetPrice: targetPrice ? Number(targetPrice) : null,
+          selectedSize: selectedSize.trim() || null,
+          notes: notes.trim() || null,
         }),
       });
 
@@ -175,6 +179,38 @@ function AddProductForm() {
                 placeholder="e.g. 1499"
                 disabled={isLoading}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Optional Variant / Size & Notes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="size-input" className="block text-xs font-semibold text-slate-200 mb-1">
+                Size / Variant (Optional)
+              </label>
+              <input
+                id="size-input"
+                type="text"
+                value={selectedSize}
+                onChange={(e) => setSelectedSize(e.target.value)}
+                placeholder="e.g. M, L, UK 9, 256GB"
+                disabled={isLoading}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50"
+              />
+            </div>
+            <div>
+              <label htmlFor="notes-input" className="block text-xs font-semibold text-slate-200 mb-1">
+                Personal Notes (Optional)
+              </label>
+              <input
+                id="notes-input"
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Birthday gift, wait for Diwali"
+                disabled={isLoading}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50"
               />
             </div>
           </div>

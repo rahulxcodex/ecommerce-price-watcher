@@ -84,6 +84,29 @@ export async function scrapeAmazon(url: string): Promise<ScrapeResult> {
       }
     }
 
+    // Available sizes
+    const availableSizes: string[] = [];
+    $('#native_dropdown_selected_size_name option').each((_, opt) => {
+      const val = $(opt).text().trim();
+      if (val && !val.toLowerCase().includes('select') && val.length < 20) {
+        availableSizes.push(val);
+      }
+    });
+
+    // Bank offers
+    const bankOffers = [];
+    const offerText = $('#item_deals_badge_div, #instantBankDiscount, [data-csa-c-slot-id*="offer"]').text();
+    if (offerText) {
+      for (const b of ['HDFC', 'ICICI', 'SBI', 'Axis', 'OneCard']) {
+        if (new RegExp(b, 'i').test(offerText)) {
+          bankOffers.push({
+            bank: b,
+            description: `Instant discount available with ${b} Bank cards`,
+          });
+        }
+      }
+    }
+
     if (!price && !isOutOfStock) {
       return {
         success: false,
@@ -99,6 +122,8 @@ export async function scrapeAmazon(url: string): Promise<ScrapeResult> {
       price: price ?? 0,
       imageUrl,
       isOutOfStock,
+      availableSizes: availableSizes.length > 0 ? availableSizes : undefined,
+      bankOffers: bankOffers.length > 0 ? bankOffers : undefined,
       currency: 'INR',
     };
   } catch (err: unknown) {

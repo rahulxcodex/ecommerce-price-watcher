@@ -208,7 +208,63 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                     {discount}% OFF Peak
                   </span>
                 )}
+                {product.selected_size && (
+                  <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-lg border border-slate-700 font-semibold">
+                    Tracked Size: {product.selected_size}
+                  </span>
+                )}
               </div>
+
+              {/* Data Science Predictive Analytics: Buy vs. Wait Engine */}
+              {(() => {
+                const distToLow = product.lowest_price > 0 ? (product.current_price - product.lowest_price) / product.lowest_price : 0;
+                const distToHigh = product.highest_price > 0 ? (product.highest_price - product.current_price) / product.highest_price : 0;
+                const isGoodBuy = distToLow <= 0.05 || distToHigh >= 0.2;
+                const isDeceptive = product.highest_price >= product.current_price * 1.5 && history.length >= 2;
+
+                return (
+                  <div className="mt-4 space-y-2">
+                    <div className="inline-flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                      <span className="text-slate-500 font-medium">Predictive Verdict:</span>
+                      {isGoodBuy ? (
+                        <span className="font-bold text-emerald-400 flex items-center gap-1">
+                          🟢 BUY NOW — At or near historical price floor!
+                        </span>
+                      ) : (
+                        <span className="font-bold text-amber-400 flex items-center gap-1">
+                          ⏳ WAIT — Price is {Math.round(distToLow * 100)}% above recorded low; drop likely during sale.
+                        </span>
+                      )}
+                    </div>
+
+                    {isDeceptive && (
+                      <div className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
+                        <span>Deceptive MRP detected: Retailer appears to have marked up base price by {Math.round((product.highest_price / product.current_price - 1) * 100)}% to simulate a fake discount.</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Feature 6: Bank Card Discount Calculator */}
+              {product.bank_offers && product.bank_offers.length > 0 && (
+                <div className="mt-3 bg-purple-500/10 border border-purple-500/20 p-3 rounded-xl text-xs">
+                  <span className="font-bold text-purple-300 block mb-1">💳 Active Bank Offers:</span>
+                  <div className="space-y-1">
+                    {product.bank_offers.map((offer, idx) => {
+                      const estimatedDiscount = Math.min(Math.round(product.current_price * 0.1), 1500);
+                      const netPrice = product.current_price - estimatedDiscount;
+                      return (
+                        <div key={idx} className="flex justify-between items-center text-slate-300">
+                          <span>{offer.bank} Card Discount (10% up to ₹1,500)</span>
+                          <span className="font-bold text-purple-400">Net: {formatPrice(netPrice)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quick Actions */}

@@ -26,13 +26,30 @@ export function getDefaultHeaders(): Record<string, string> {
 }
 
 export function parsePrice(raw: string): number | null {
-  if (!raw) return null;
-  // Clean commas, currency signs, spaces, non-numeric except decimal
+  if (!raw || typeof raw !== 'string') return null;
+
+  // 1. Look for currency symbol followed by price: ₹1,499 or Rs. 1499.00
+  const currencyMatch = raw.match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  if (currencyMatch && currencyMatch[1]) {
+    const val = parseFloat(currencyMatch[1].replace(/,/g, ''));
+    if (!isNaN(val) && val > 0) return val;
+  }
+
+  // 2. Fallback: Clean commas and currency signs, match valid decimal
   const cleaned = raw.replace(/[₹$,\s]/g, '').trim();
-  const match = cleaned.match(/(\d+(\.\d+)?)/);
-  if (!match) return null;
-  const num = parseFloat(match[1]);
-  return isNaN(num) ? null : num;
+  const matches = Array.from(cleaned.matchAll(/(\d+(?:\.\d{1,2})?)/g));
+  if (matches.length === 0) return null;
+
+  // If multiple numbers exist (e.g. "Pack of 2 - 1499"), pick the most plausible price (> 20)
+  for (const m of matches) {
+    const candidate = parseFloat(m[1]);
+    if (!isNaN(candidate) && candidate >= 10) {
+      return candidate;
+    }
+  }
+
+  const fallback = parseFloat(matches[0][1]);
+  return isNaN(fallback) ? null : fallback;
 }
 
 export async function delay(ms: number): Promise<void> {

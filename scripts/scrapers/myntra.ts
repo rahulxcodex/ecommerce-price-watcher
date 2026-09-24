@@ -47,6 +47,11 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
                 ? pdpData.sizes.every((s: { available?: boolean }) => s.available === false)
                 : false;
 
+            const availableSizes: string[] = (pdpData.sizes || [])
+              .filter((s: { available?: boolean }) => s.available !== false)
+              .map((s: { label?: string; size?: string }) => s.label || s.size || '')
+              .filter(Boolean);
+
             if (price && Number(price) > 0) {
               return {
                 success: true,
@@ -55,6 +60,7 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
                 imageUrl,
                 currency: 'INR',
                 isOutOfStock,
+                availableSizes: availableSizes.length > 0 ? availableSizes : undefined,
               };
             }
           }
@@ -131,9 +137,10 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
   }
 
   // Strategy 2: Playwright Headless Browser Fallback
+  let browser;
   try {
     const { chromium } = await import('playwright');
-    const browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -161,8 +168,6 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
       .getAttribute('src')
       .catch(() => null);
 
-    await browser.close();
-
     const price = priceText ? parsePrice(priceText) : null;
     if (!price || price <= 0) {
       return { success: false, error: 'Could not extract Myntra price with Playwright.' };
@@ -178,5 +183,9 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
     return { success: false, error: `Myntra Playwright failed: ${errorMsg}` };
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => null);
+    }
   }
 }

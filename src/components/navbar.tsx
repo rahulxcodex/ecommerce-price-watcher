@@ -26,7 +26,7 @@ export function Navbar() {
                 Price<span className="text-emerald-400">Watcher</span>
               </span>
               <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                Amazon • Flipkart • Meesho
+                Multi-Store Price Tracker • 6 Platforms
               </span>
             </div>
           </Link>

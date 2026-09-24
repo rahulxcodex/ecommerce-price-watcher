@@ -30,6 +30,10 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
             apiData.baseOptions?.[0]?.options?.[0]?.modelImage?.url;
           const isOutOfStock = apiData.stock?.stockLevelStatus === 'outOfStock';
 
+          const availableSizes: string[] = (apiData.baseOptions?.[0]?.options || [])
+            .map((opt: { modelImage?: { altText?: string }; scDisplaySizeValue?: string }) => opt.scDisplaySizeValue || opt.modelImage?.altText || '')
+            .filter(Boolean);
+
           if (price && Number(price) > 0) {
             return {
               success: true,
@@ -38,6 +42,7 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
               imageUrl: imageUrl?.startsWith('http') ? imageUrl : imageUrl ? `https://assets.ajio.com${imageUrl}` : undefined,
               currency: 'INR',
               isOutOfStock,
+              availableSizes: availableSizes.length > 0 ? availableSizes : undefined,
             };
           }
         }
@@ -144,9 +149,10 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
   }
 
   // Strategy 3: Playwright Headless Browser Fallback
+  let browser;
   try {
     const { chromium } = await import('playwright');
-    const browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -174,8 +180,6 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
       .getAttribute('src')
       .catch(() => null);
 
-    await browser.close();
-
     const price = priceText ? parsePrice(priceText) : null;
     if (!price || price <= 0) {
       return { success: false, error: 'Could not extract Ajio price with Playwright.' };
@@ -191,5 +195,9 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
     return { success: false, error: `Ajio Playwright failed: ${errorMsg}` };
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => null);
+    }
   }
 }

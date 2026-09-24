@@ -50,7 +50,7 @@ export default function DashboardPage() {
   const filteredProducts = products.filter((p) => {
     const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
     const matchesPlatform = selectedPlatform === 'all' || p.platform === selectedPlatform;
-    const matchesLow = onlyAllTimeLow ? p.current_price <= p.lowest_price && p.lowest_price > 0 : true;
+    const matchesLow = onlyAllTimeLow ? p.current_price <= p.lowest_price && p.lowest_price > 0 && p.highest_price > p.current_price : true;
     return matchesSearch && matchesPlatform && matchesLow;
   });
 
@@ -65,7 +65,7 @@ export default function DashboardPage() {
   });
 
   const allTimeLowCount = products.filter(
-    (p) => p.current_price <= p.lowest_price && p.lowest_price > 0
+    (p) => p.current_price <= p.lowest_price && p.lowest_price > 0 && p.highest_price > p.current_price
   ).length;
 
   return (

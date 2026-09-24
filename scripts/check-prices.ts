@@ -6,9 +6,10 @@ import { scrapeMyntra } from './scrapers/myntra';
 import { scrapeAjio } from './scrapers/ajio';
 import { scrapeWestside } from './scrapers/westside';
 import { delay } from './scrapers/utils';
-import { sendTelegramAlert } from './notify';
+import { dispatchAlerts } from './notify';
+import { sendWebPushToAll } from '@/lib/web-push';
 import { validateScrapedPrice } from '@/lib/security';
-import { Product, UserProfile } from '@/types';
+import { Product, AppSettings } from '@/types';
 
 async function main() {
   console.log('🚀 Starting Scheduled Price Checker...');
@@ -23,7 +24,7 @@ async function main() {
   }
 
   // 1. Fetch active products
-  const { data: products, error: prodErr } = await supabase
+  const { data: rawProducts, error: prodErr } = await supabase
     .from('products')
     .select('*')
     .eq('is_active', true);
@@ -33,31 +34,57 @@ async function main() {
     process.exit(1);
   }
 
-  if (!products || products.length === 0) {
+  if (!rawProducts || rawProducts.length === 0) {
     console.log('No active products found to track.');
     return;
   }
 
-  console.log(`📋 Found ${products.length} active products to check.`);
-
-  // 2. Fetch user notification profiles
-  const userIds = Array.from(new Set(products.map((p: Product) => p.user_id)));
-  const { data: profiles } = await supabase
-    .from('user_profiles')
+  // 2. Fetch App Settings
+  let settingsData = null;
+  const { data: appSettings } = await supabase
+    .from('app_settings')
     .select('*')
-    .in('id', userIds);
+    .eq('id', 'default')
+    .maybeSingle();
 
-  const profileMap = new Map<string, UserProfile>();
-  if (profiles) {
-    profiles.forEach((p: UserProfile) => profileMap.set(p.id, p));
+  if (appSettings) {
+    settingsData = appSettings;
+  } else {
+    const { data: houseSet } = await supabase
+      .from('household_settings')
+      .select('*')
+      .eq('id', 'default')
+      .maybeSingle();
+    settingsData = houseSet;
   }
+
+  const appSettingsConfig: Partial<AppSettings> = settingsData || {
+    telegram_chat_id: process.env.TELEGRAM_CHAT_ID || null,
+    whatsapp_phone: process.env.WHATSAPP_PHONE || null,
+    whatsapp_apikey: process.env.WHATSAPP_API_KEY || null,
+    email: process.env.APPSCRIPT_TO_EMAIL || null,
+    notification_preference: 'all_time_low',
+  };
+
+  // 3. DSA Optimization: Priority Queue / Adaptive Ordering
+  // Prioritize items near target price or checked longest ago
+  const products = (rawProducts as Product[]).sort((a, b) => {
+    const aTargetDist = a.target_price ? Math.abs(a.current_price - a.target_price) / a.current_price : 1;
+    const bTargetDist = b.target_price ? Math.abs(b.current_price - b.target_price) / b.current_price : 1;
+    const aTime = new Date(a.last_checked_at || 0).getTime();
+    const bTime = new Date(b.last_checked_at || 0).getTime();
+    // Lower target distance and older checked time get higher priority
+    return aTargetDist - bTargetDist || aTime - bTime;
+  });
+
+  console.log(`📋 Found ${products.length} active products to check.`);
 
   let checkedCount = 0;
   let priceDropCount = 0;
   let errorCount = 0;
 
-  // 3. Process products sequentially with polite pacing
-  for (const product of products as Product[]) {
+  // 4. Process products with domain-aware pacing
+  for (const product of products) {
     checkedCount++;
     console.log(`\n[${checkedCount}/${products.length}] Checking: ${product.title.slice(0, 40)}... (${product.platform})`);
 
@@ -83,13 +110,28 @@ async function main() {
       scrapeRes = { success: false, error: String(e) };
     }
 
-    if (!scrapeRes.success || !scrapeRes.price) {
+    // Handle out of stock detection
+    if (scrapeRes.isOutOfStock) {
+      console.log(`  📦 Product is currently Out of Stock: "${product.title.slice(0, 30)}"`);
+      await supabase
+        .from('products')
+        .update({
+          check_status: 'out_of_stock',
+          error_message: null,
+          last_checked_at: new Date().toISOString(),
+        })
+        .eq('id', product.id);
+      await delay(2000);
+      continue;
+    }
+
+    if (!scrapeRes.success || !scrapeRes.price || scrapeRes.price <= 0) {
       errorCount++;
       console.warn(`⚠️ Scraping failed for "${product.title.slice(0, 30)}": ${scrapeRes.error}`);
       await supabase
         .from('products')
         .update({
-          check_status: scrapeRes.isOutOfStock ? 'out_of_stock' : 'error',
+          check_status: 'error',
           error_message: scrapeRes.error || 'Failed to extract price',
           last_checked_at: new Date().toISOString(),
         })
@@ -116,14 +158,63 @@ async function main() {
       continue;
     }
 
+    // State transition analysis
+    const wasOutOfStock = product.check_status === 'out_of_stock';
+    const isBackInStock = wasOutOfStock && newPrice > 0;
     const isPriceDrop = newPrice < product.current_price;
-    const isAllTimeLow = newPrice <= product.lowest_price;
+    // Bug 1 fix: All-time low MUST be strictly lower than previous lowest AND lower than current price
+    const isAllTimeLow = isPriceDrop && newPrice < product.lowest_price;
     const isHitTarget = product.target_price !== null && newPrice <= product.target_price;
 
     const newLowest = Math.min(product.lowest_price, newPrice);
     const newHighest = Math.max(product.highest_price, newPrice);
 
     console.log(`  Current: ₹${product.current_price} | New: ₹${newPrice} | All-time Low: ₹${newLowest}`);
+
+    // Determine whether an alert should be dispatched
+    // Prevent duplicate alert loop if we already alerted at this exact price
+    const hasAlreadyAlertedThisPrice = product.last_alerted_price !== null && product.last_alerted_price === newPrice;
+    const preference = appSettingsConfig.notification_preference || 'all_time_low';
+
+    const shouldAlert =
+      !hasAlreadyAlertedThisPrice &&
+      (isBackInStock ||
+        isAllTimeLow ||
+        (isHitTarget && isPriceDrop) ||
+        (isPriceDrop && preference === 'any_drop'));
+
+    let newLastAlerted = product.last_alerted_price;
+
+    if (shouldAlert) {
+      priceDropCount++;
+      newLastAlerted = newPrice;
+      console.log(`  🔔 Triggering Alerts (Telegram, WhatsApp, Email, WebPush)...`);
+
+      // 1. Dispatch configured notifications (Telegram, WhatsApp, Email)
+      await dispatchAlerts(appSettingsConfig, {
+        productTitle: product.title,
+        productUrl: product.url,
+        previousPrice: product.current_price,
+        newPrice: newPrice,
+        lowestPrice: newLowest,
+        currency: product.currency || 'INR',
+        isAllTimeLow: isAllTimeLow,
+        isBackInStock: isBackInStock,
+        imageUrl: scrapeRes.imageUrl || product.image_url || undefined,
+        platform: product.platform,
+      });
+
+      // 2. Dispatch Web Push notification to registered browsers
+      await sendWebPushToAll({
+        title: isBackInStock
+          ? `🎉 Back in Stock: ${product.title.slice(0, 30)}`
+          : isAllTimeLow
+          ? `🔥 All-Time Low: ${product.title.slice(0, 30)}`
+          : `📉 Price Drop: ${product.title.slice(0, 30)}`,
+        body: `Price is now ₹${newPrice.toLocaleString('en-IN')} (was ₹${product.current_price.toLocaleString('en-IN')})`,
+        url: `/product/${product.id}`,
+      }).catch((e) => console.warn('Web Push failed:', e));
+    }
 
     // Update product in database
     await supabase
@@ -136,7 +227,9 @@ async function main() {
         error_message: null,
         last_checked_at: new Date().toISOString(),
         last_price_drop_at: isPriceDrop ? new Date().toISOString() : product.last_price_drop_at,
+        last_alerted_price: newLastAlerted,
         image_url: scrapeRes.imageUrl || product.image_url,
+        bank_offers: scrapeRes.bankOffers || product.bank_offers,
       })
       .eq('id', product.id);
 
@@ -148,25 +241,8 @@ async function main() {
       recorded_at: new Date().toISOString(),
     });
 
-    // Check if notification should fire
-    const userProfile = profileMap.get(product.user_id);
-    if (userProfile && userProfile.telegram_chat_id && (isAllTimeLow || isHitTarget || (isPriceDrop && userProfile.notification_preference === 'any_drop'))) {
-      priceDropCount++;
-      console.log(`  🔔 Triggering Telegram alert to chat ${userProfile.telegram_chat_id}...`);
-      await sendTelegramAlert({
-        chatId: userProfile.telegram_chat_id,
-        productTitle: product.title,
-        productUrl: product.url,
-        previousPrice: product.current_price,
-        newPrice: newPrice,
-        lowestPrice: newLowest,
-        currency: product.currency || 'INR',
-        isAllTimeLow: isAllTimeLow,
-      });
-    }
-
-    // Polite delay between requests to prevent IP rate-limiting
-    await delay(2500);
+    // Polite delay between requests
+    await delay(2000);
   }
 
   const durationSec = Math.round((Date.now() - startTime) / 1000);

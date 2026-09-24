@@ -11,16 +11,27 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const isAllTimeLow = product.current_price <= product.lowest_price && product.lowest_price > 0;
+  // Bug 15 fix: Only show all-time low if price has actually dropped from a previous higher price
+  const isAllTimeLow =
+    product.current_price <= product.lowest_price &&
+    product.lowest_price > 0 &&
+    product.highest_price > product.current_price;
+
+  const isOutOfStock = product.check_status === 'out_of_stock';
   const discount = calculateDiscount(product.current_price, product.highest_price);
 
   return (
     <div className="group relative bg-slate-900/60 border border-slate-800 hover:border-slate-700 hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-200 rounded-2xl p-4 flex flex-col justify-between">
       <div>
-        {/* Header with platform & badge */}
-        <div className="flex items-center justify-between gap-2 mb-3">
+        {/* Header with platform & status badges */}
+        <div className="flex items-center justify-between gap-1.5 mb-3 flex-wrap">
           <PlatformBadge platform={product.platform} />
-          {isAllTimeLow ? (
+
+          {isOutOfStock ? (
+            <span className="inline-flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-bold px-2 py-0.5 rounded-full">
+              Out of Stock
+            </span>
+          ) : isAllTimeLow ? (
             <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold px-2 py-0.5 rounded-full animate-pulse">
               🔥 ALL-TIME LOW
             </span>
@@ -57,7 +68,7 @@ export function ProductCard({ product }: ProductCardProps) {
               {product.title}
             </Link>
 
-            <div className="mt-2 flex items-baseline gap-2">
+            <div className="mt-2 flex items-baseline gap-2 flex-wrap">
               <span className="text-xl font-extrabold text-slate-100 tracking-tight">
                 {formatPrice(product.current_price, product.currency)}
               </span>
@@ -66,7 +77,18 @@ export function ProductCard({ product }: ProductCardProps) {
                   {formatPrice(product.highest_price, product.currency)}
                 </span>
               )}
+              {product.selected_size && (
+                <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700 font-medium">
+                  Size: {product.selected_size}
+                </span>
+              )}
             </div>
+
+            {product.bank_offers && product.bank_offers.length > 0 && (
+              <div className="mt-1 text-[11px] text-amber-400/90 font-medium flex items-center gap-1">
+                <span>💳 {product.bank_offers[0].description.slice(0, 45)}...</span>
+              </div>
+            )}
           </div>
         </div>
 

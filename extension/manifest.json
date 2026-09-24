@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "PriceWatcher Companion",
+  "version": "1.0.0",
+  "description": "One-click product price tracker for Amazon, Flipkart, Myntra, Ajio, Meesho & Westside.",
+  "permissions": ["activeTab"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Track this item on PriceWatcher"
+  },
+  "host_permissions": [
+    "https://*/*",
+    "http://localhost:3000/*"
+  ]
+}

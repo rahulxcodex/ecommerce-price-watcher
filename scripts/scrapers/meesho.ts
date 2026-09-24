@@ -66,11 +66,12 @@ export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
       // Check standard Meesho DOM elements
       const domTitle = $('h1').text().trim() || $('p[class*="ProductTitle"]').text().trim();
       let domPrice: number | null = null;
-      $('h4, h5, span').each((_, elem) => {
+      $('h4, span[class*="Price"], div[class*="Price"], p[class*="Price"]').each((_, elem) => {
         const text = $(elem).text().trim();
-        if (text.startsWith('₹') && !domPrice) {
+        // Ignore discount banners and promotional coupons
+        if (text.startsWith('₹') && !domPrice && !text.toLowerCase().includes('off') && !text.toLowerCase().includes('coupon')) {
           const parsed = parsePrice(text);
-          if (parsed && parsed > 20 && parsed < 200000) {
+          if (parsed && parsed >= 20 && parsed < 200000) {
             domPrice = parsed;
           }
         }
@@ -95,7 +96,7 @@ export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
           success: true,
           title: domTitle || 'Meesho Product',
           price: domPrice,
-          imageUrl: $('img').first().attr('src'),
+          imageUrl: $('img[class*="ProductImage"], img').first().attr('src'),
           currency: 'INR',
         };
       }
@@ -105,9 +106,10 @@ export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
   }
 
   // Strategy 2: Playwright Headless Fallback
+  let browser;
   try {
     const { chromium } = await import('playwright');
-    const browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     });
@@ -118,8 +120,6 @@ export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
     const priceText = await page.locator('h4, span[class*="Price"], div[class*="Price"]').first().textContent().catch(() => null);
     const titleText = await page.locator('h1').first().textContent().catch(() => 'Meesho Product');
     const imageSrc = await page.locator('img[class*="ProductImage"], img').first().getAttribute('src').catch(() => null);
-
-    await browser.close();
 
     const price = priceText ? parsePrice(priceText) : null;
     if (!price || price <= 0) {
@@ -136,5 +136,9 @@ export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
     return { success: false, error: `Meesho Playwright failed: ${errorMsg}` };
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => null);
+    }
   }
 }

@@ -102,9 +102,10 @@ export async function scrapeFlipkart(url: string): Promise<ScrapeResult> {
   }
 
   // Strategy 2: Headless Playwright Browser Fallback
+  let browser;
   try {
     const { chromium } = await import('playwright');
-    const browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 },
@@ -118,8 +119,6 @@ export async function scrapeFlipkart(url: string): Promise<ScrapeResult> {
     const priceText = await page.locator('div.Nx9bqj.CxhGGd, div._30jeq3._16Jk6d, div.Nx9bqj, div._30jeq3').first().textContent().catch(() => null);
     const titleText = await page.locator('span.B_NuCI, span.VU-ZEz, h1').first().textContent().catch(() => 'Flipkart Product');
     const imageSrc = await page.locator('img._396cs4, img.DByuf4').first().getAttribute('src').catch(() => null);
-
-    await browser.close();
 
     const price = priceText ? parsePrice(priceText) : null;
     if (!price || price <= 0) {
@@ -136,5 +135,9 @@ export async function scrapeFlipkart(url: string): Promise<ScrapeResult> {
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
     return { success: false, error: `Flipkart Playwright failed: ${errorMsg}` };
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => null);
+    }
   }
 }

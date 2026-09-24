@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { url: rawUrl, targetPrice } = body;
+    const { url: rawUrl, targetPrice, selectedSize, selectedColor, notes } = body;
 
     // 1. Strict Security & SSRF Validation
     const validation = validateAndSanitizeUrl(rawUrl);
@@ -62,19 +62,23 @@ export async function POST(req: NextRequest) {
       db = supabase;
     }
 
-    // Default demo user ID for anonymous/public usage
-    const defaultUserId = '00000000-0000-0000-0000-000000000000';
+    // Default user ID for personal instance
+    const defaultUserId = '00000000-0000-0000-0000-000000000001';
 
     // 2. Check if product already tracked
     const { data: existing } = await db
       .from('products')
-      .select('id, title')
+      .select('*')
       .eq('url', cleanUrl)
       .maybeSingle();
 
     if (existing) {
       return NextResponse.json(
-        { error: 'This product is already being tracked in your list!', productId: existing.id },
+        {
+          error: 'This product is already in your watchlist!',
+          productId: existing.id,
+          product: existing,
+        },
         { status: 409 }
       );
     }
@@ -121,6 +125,7 @@ export async function POST(req: NextRequest) {
 
     // 5. Insert new product
     const insertPayload: Record<string, unknown> = {
+      user_id: defaultUserId,
       url: cleanUrl,
       platform,
       title,
@@ -129,6 +134,10 @@ export async function POST(req: NextRequest) {
       lowest_price: price,
       highest_price: price,
       target_price: targetPrice ? Number(targetPrice) : null,
+      selected_size: selectedSize || null,
+      selected_color: selectedColor || null,
+      notes: notes || null,
+      bank_offers: scrapeRes.bankOffers || [],
       currency: 'INR',
       is_active: true,
       last_checked_at: new Date().toISOString(),

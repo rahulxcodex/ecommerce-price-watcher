@@ -17,8 +17,45 @@ export interface Product {
   last_price_drop_at: string | null;
   check_status: 'ok' | 'error' | 'out_of_stock';
   error_message: string | null;
+  selected_size?: string | null;
+  selected_color?: string | null;
+  notes?: string | null;
+  last_alerted_price?: number | null;
+  bank_offers?: BankOffer[];
   created_at: string;
   updated_at: string;
+}
+
+export interface BankOffer {
+  bank: string;
+  discountPercent?: number;
+  maxDiscount?: number;
+  description: string;
+  calculatedPrice?: number;
+}
+
+export interface AppSettings {
+  id: string;
+  telegram_chat_id: string | null;
+  whatsapp_phone: string | null;
+  whatsapp_apikey: string | null;
+  email: string | null;
+  notification_preference: 'all_time_low' | 'any_drop' | 'never';
+  selected_bank_cards: string[];
+  updated_at?: string;
+}
+
+// Alias for backwards compatibility
+export type HouseholdSettings = AppSettings;
+
+export interface PushSubscriptionRecord {
+  id?: string;
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+  created_at?: string;
 }
 
 export interface PriceHistoryItem {
@@ -45,5 +82,8 @@ export interface ScrapeResult {
   imageUrl?: string;
   currency?: string;
   isOutOfStock?: boolean;
+  availableSizes?: string[];
+  bankOffers?: BankOffer[];
   error?: string;
 }
+

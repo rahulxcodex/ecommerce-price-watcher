@@ -15,7 +15,7 @@ async function testAppsScriptIntegration() {
     textBody: 'Hello world',
   });
   assert(!resNoUrl.success, 'Must fail gracefully when APPSCRIPT_EMAIL_URL is missing');
-  assert(resNoUrl.error?.includes('APPSCRIPT_EMAIL_URL'), 'Error should mention APPSCRIPT_EMAIL_URL');
+  assert(Boolean(resNoUrl.error?.includes('APPSCRIPT_EMAIL_URL')), 'Error should mention APPSCRIPT_EMAIL_URL');
   console.log('  ✅ [PASS] Missing environment variable handled gracefully');
 
   // Test 2: Price drop alert payload construction

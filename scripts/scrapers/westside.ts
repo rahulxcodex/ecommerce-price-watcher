@@ -23,13 +23,10 @@ export async function scrapeWestside(url: string): Promise<ScrapeResult> {
       if (jsonRes.ok) {
         const prodData = await jsonRes.json();
         if (prodData && prodData.title) {
-          // Shopify prices are in cents/paise (e.g. 129900 = 1,299 INR)
+          // Shopify JSON prices are always in cents/paise (e.g. 9900 = 99 INR, 129900 = 1,299 INR)
           let price = prodData.price;
           if (price && typeof price === 'number') {
-            // Check if price is in paise (>= 100 times common price)
-            if (price > 10000 && Number.isInteger(price)) {
-              price = price / 100;
-            }
+            price = price / 100;
           }
 
           const isOutOfStock = prodData.available === false;
@@ -37,6 +34,12 @@ export async function scrapeWestside(url: string): Promise<ScrapeResult> {
           if (imageUrl && imageUrl.startsWith('//')) {
             imageUrl = `https:${imageUrl}`;
           }
+
+          // Extract sizes from variants
+          const availableSizes: string[] = (prodData.variants || [])
+            .filter((v: { available?: boolean }) => v.available)
+            .map((v: { title?: string }) => v.title || '')
+            .filter(Boolean);
 
           if (price && price > 0) {
             return {
@@ -46,6 +49,7 @@ export async function scrapeWestside(url: string): Promise<ScrapeResult> {
               imageUrl,
               currency: 'INR',
               isOutOfStock,
+              availableSizes: availableSizes.length > 0 ? availableSizes : undefined,
             };
           }
         }
@@ -130,9 +134,10 @@ export async function scrapeWestside(url: string): Promise<ScrapeResult> {
   }
 
   // Strategy 3: Playwright Headless Browser Fallback
+  let browser;
   try {
     const { chromium } = await import('playwright');
-    const browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -160,8 +165,6 @@ export async function scrapeWestside(url: string): Promise<ScrapeResult> {
       .getAttribute('src')
       .catch(() => null);
 
-    await browser.close();
-
     const price = priceText ? parsePrice(priceText) : null;
     if (!price || price <= 0) {
       return { success: false, error: 'Could not extract Westside price with Playwright.' };
@@ -179,5 +182,9 @@ export async function scrapeWestside(url: string): Promise<ScrapeResult> {
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
     return { success: false, error: `Westside Playwright failed: ${errorMsg}` };
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => null);
+    }
   }
 }

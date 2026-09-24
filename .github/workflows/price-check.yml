@@ -37,4 +37,6 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          APPSCRIPT_EMAIL_URL: ${{ secrets.APPSCRIPT_EMAIL_URL }}
+          APPSCRIPT_API_KEY: ${{ secrets.APPSCRIPT_API_KEY }}
         run: npm run scrape
