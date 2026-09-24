@@ -68,6 +68,7 @@ function AddProductForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError(null);
     setSuccess(null);
 

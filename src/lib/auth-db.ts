@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import crypto from 'crypto';
 import { supabase, getServiceSupabase } from './supabase';
 import {
   AuthUser,
@@ -12,6 +14,7 @@ import {
 export interface StoredUser {
   id: string;
   name: string;
+  email: string;
   pin_hash: string;
   pin_salt: string;
   is_combined: boolean;
@@ -20,7 +23,14 @@ export interface StoredUser {
   updated_at: string;
 }
 
-const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
+// On serverless environments (Vercel/AWS Lambda), process.cwd() is read-only.
+// Use os.tmpdir() when in Vercel or when local directory is not writable.
+function getLocalUsersFilePath(): string {
+  if (process.env.VERCEL) {
+    return path.join(os.tmpdir(), 'pricewatcher_users.json');
+  }
+  return path.join(process.cwd(), 'data', 'users.json');
+}
 
 // Memory cache for fallback
 let fallbackUsers: StoredUser[] | null = null;
@@ -28,8 +38,9 @@ let fallbackUsers: StoredUser[] | null = null;
 function loadLocalUsers(): StoredUser[] {
   if (fallbackUsers) return fallbackUsers;
   try {
-    if (fs.existsSync(LOCAL_USERS_FILE)) {
-      const content = fs.readFileSync(LOCAL_USERS_FILE, 'utf-8');
+    const filePath = getLocalUsersFilePath();
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
       fallbackUsers = JSON.parse(content);
       return fallbackUsers || [];
     }
@@ -43,11 +54,15 @@ function loadLocalUsers(): StoredUser[] {
 function saveLocalUsers(users: StoredUser[]): void {
   fallbackUsers = users;
   try {
-    const dir = path.dirname(LOCAL_USERS_FILE);
+    const filePath = getLocalUsersFilePath();
+    const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(LOCAL_USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+    // Atomic write via temp file + rename to prevent corruption
+    const tempFile = `${filePath}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(users, null, 2), 'utf-8');
+    fs.renameSync(tempFile, filePath);
   } catch (err) {
     console.warn('Failed saving local users file:', err);
   }
@@ -65,6 +80,7 @@ function toAuthUser(user: StoredUser): AuthUser {
   return {
     id: user.id,
     name: user.name,
+    email: user.email,
     isCombined: Boolean(user.is_combined),
     role: user.role || (user.is_combined ? 'combined' : 'user'),
     createdAt: user.created_at,
@@ -72,8 +88,79 @@ function toAuthUser(user: StoredUser): AuthUser {
 }
 
 /**
- * Authenticate a user by 4-digit numeric PIN only.
- * Iterates through active users and verifies the PIN hash.
+ * Authenticate a user by Email and PIN
+ */
+export async function authenticateByEmailAndPin(
+  email: string,
+  pin: string
+): Promise<{ user: AuthUser | null; error?: string }> {
+  if (!email || !pin) {
+    return { user: null, error: 'Email and PIN are required.' };
+  }
+
+  const normEmail = email.trim().toLowerCase();
+  const db = getDbClient();
+  let userRecord: StoredUser | null = null;
+
+  try {
+    const { data, error } = await db
+      .from('app_users')
+      .select('*')
+      .ilike('email', normEmail)
+      .maybeSingle();
+
+    if (!error && data) {
+      userRecord = data as StoredUser;
+    }
+  } catch {
+    // Supabase query error fallback
+  }
+
+  if (!userRecord) {
+    const local = loadLocalUsers().find((u) => (u.email || '').toLowerCase() === normEmail);
+    if (local) {
+      userRecord = local;
+    }
+  }
+
+  if (!userRecord) {
+    return { user: null, error: 'No account found with this email address.' };
+  }
+
+  if (!verifyPin(pin, userRecord.pin_salt, userRecord.pin_hash)) {
+    return { user: null, error: 'Incorrect PIN. Please try again.' };
+  }
+
+  return { user: toAuthUser(userRecord) };
+}
+
+/**
+ * Check if an email address is already registered
+ */
+export async function isEmailTaken(email: string): Promise<boolean> {
+  if (!email) return false;
+  const normEmail = email.trim().toLowerCase();
+  const db = getDbClient();
+
+  try {
+    const { data, error } = await db
+      .from('app_users')
+      .select('id')
+      .ilike('email', normEmail)
+      .maybeSingle();
+
+    if (!error && data) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
+  return loadLocalUsers().some((u) => (u.email || '').toLowerCase() === normEmail);
+}
+
+/**
+ * Legacy: Authenticate a user by PIN only (kept for backward compatibility)
  */
 export async function authenticateByPin(pin: string): Promise<AuthUser | null> {
   const db = getDbClient();
@@ -100,7 +187,7 @@ export async function authenticateByPin(pin: string): Promise<AuthUser | null> {
 }
 
 /**
- * Check if a 4-digit PIN is already registered by any user.
+ * Legacy: Check if a PIN is taken
  */
 export async function isPinTaken(pin: string): Promise<boolean> {
   const user = await authenticateByPin(pin);
@@ -132,24 +219,29 @@ export async function getUserById(id: string): Promise<AuthUser | null> {
 }
 
 /**
- * Register a new user with Name and 4-digit PIN.
+ * Register a new user with Name, Email, and PIN.
  * Automatically gives Rahul and Nishaa special combined access!
+ * Generates RFC4122 v4 UUID to ensure 100% compatibility with Postgres UUID columns.
  */
 export async function createUser(params: {
   name: string;
+  email: string;
   pin: string;
 }): Promise<AuthUser> {
-  const { name, pin } = params;
-  const isCombined = isCombinedAccount(name);
+  const { name, email, pin } = params;
+  const normEmail = email.trim().toLowerCase();
+  const isCombined = isCombinedAccount(name, normEmail);
   const role: 'combined' | 'user' = isCombined ? 'combined' : 'user';
   const salt = generateSalt();
   const hash = hashPin(pin, salt);
   const now = new Date().toISOString();
-  const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  // Valid UUID generation prevents "invalid input syntax for type uuid" in Supabase
+  const id = crypto.randomUUID();
 
   const newUser: StoredUser = {
     id,
     name: name.trim(),
+    email: normEmail,
     pin_hash: hash,
     pin_salt: salt,
     is_combined: isCombined,
@@ -159,12 +251,12 @@ export async function createUser(params: {
   };
 
   const db = getDbClient();
-  let supabaseSaved = false;
 
   try {
-    const { error } = await db.from('app_users').insert({
+    await db.from('app_users').insert({
       id: newUser.id,
       name: newUser.name,
+      email: newUser.email,
       pin_hash: newUser.pin_hash,
       pin_salt: newUser.pin_salt,
       is_combined: newUser.is_combined,
@@ -172,17 +264,15 @@ export async function createUser(params: {
       created_at: newUser.created_at,
       updated_at: newUser.updated_at,
     });
-
-    if (!error) {
-      supabaseSaved = true;
-    }
-  } catch {
-    // fallback below
+  } catch (err) {
+    console.warn('Failed to insert user into Supabase app_users table:', err);
   }
 
   // Always sync to local storage as resilient backup / dev environment
   const currentLocal = loadLocalUsers();
-  const existingIdx = currentLocal.findIndex((u) => u.name.toLowerCase() === name.trim().toLowerCase());
+  const existingIdx = currentLocal.findIndex(
+    (u) => (u.email || '').toLowerCase() === normEmail || u.id === id
+  );
   if (existingIdx >= 0) {
     currentLocal[existingIdx] = newUser;
   } else {

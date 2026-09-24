@@ -33,15 +33,16 @@ export default function DashboardPage() {
   const [sortBy, setSortBy] = useState<'recent' | 'discount' | 'price_asc'>('recent');
   const [creatorFilter, setCreatorFilter] = useState<'all' | 'mine' | 'partner'>('all');
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch('/api/products', { signal });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load products');
       setProducts(data.products || []);
     } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
     } finally {
@@ -50,7 +51,11 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchProducts();
+    const controller = new AbortController();
+    fetchProducts(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   const isCurrentUserFirstPartner = Boolean(user?.name?.toLowerCase().includes('rahul'));
@@ -169,7 +174,7 @@ export default function DashboardPage() {
           </button>
 
           <button
-            onClick={fetchProducts}
+            onClick={() => fetchProducts()}
             disabled={isLoading}
             className="p-2 sm:p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-colors"
             title="Refresh list"

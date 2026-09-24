@@ -3,6 +3,7 @@ import crypto from 'crypto';
 export interface AuthUser {
   id: string;
   name: string;
+  email?: string;
   isCombined: boolean;
   role: 'combined' | 'user';
   createdAt?: string;
@@ -11,6 +12,7 @@ export interface AuthUser {
 export interface SessionPayload {
   userId: string;
   name: string;
+  email?: string;
   isCombined: boolean;
   role: 'combined' | 'user';
   iat: number;
@@ -32,7 +34,17 @@ function getAuthSecret(): string {
 /**
  * Determine if a user's name qualifies for special combined access (Rahul and Nishaa)
  */
-export function isCombinedAccount(name: string): boolean {
+export function isCombinedAccount(name: string, email?: string): boolean {
+  if (email) {
+    const normEmail = email.trim().toLowerCase();
+    if (
+      normEmail.includes('rahul') ||
+      normEmail.includes('nisha') ||
+      normEmail.includes('rsahgupta')
+    ) {
+      return true;
+    }
+  }
   if (!name) return false;
   const normalized = name.trim().toLowerCase();
   // Matches "Rahul", "Rahul Gupta", "Rahul Sah", "Nishaa", "Nisha", "Nishaa Gupta", etc.
@@ -51,7 +63,7 @@ export function generateSalt(): string {
 }
 
 /**
- * Hash a 4-digit PIN with a salt using SHA-256
+ * Hash a PIN with a salt using SHA-256
  */
 export function hashPin(pin: string, salt: string): string {
   return crypto
@@ -81,6 +93,7 @@ export function createSessionToken(user: AuthUser): string {
   const payload: SessionPayload = {
     userId: user.id,
     name: user.name,
+    email: user.email,
     isCombined: user.isCombined,
     role: user.role,
     iat: now,
@@ -97,7 +110,7 @@ export function createSessionToken(user: AuthUser): string {
 }
 
 /**
- * Verify and parse a signed session token
+ * Verify and parse a signed session token using constant-time comparison
  */
 export function verifySessionToken(token: string): SessionPayload | null {
   if (!token || typeof token !== 'string') return null;
@@ -111,7 +124,10 @@ export function verifySessionToken(token: string): SessionPayload | null {
     .update(payloadEncoded)
     .digest('base64url');
 
-  if (signature !== expectedSignature) {
+  const sigBuffer = Buffer.from(signature);
+  const expBuffer = Buffer.from(expectedSignature);
+
+  if (sigBuffer.length !== expBuffer.length || !crypto.timingSafeEqual(sigBuffer, expBuffer)) {
     return null;
   }
 

@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
       user: user || {
         id: payload.userId,
         name: payload.name,
+        email: payload.email,
         isCombined: payload.isCombined,
         role: payload.role,
       },

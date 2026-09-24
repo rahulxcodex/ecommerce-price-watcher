@@ -1,13 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AuthUser } from '@/lib/auth';
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  signin: (pin: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
-  signup: (name: string, pin: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
+  signin: (email: string, pin: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
+  signup: (name: string, email: string, pin: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -24,14 +24,16 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Check server-side session cookie on initial load (strictly via HTTP cookie, NO localStorage/sessionStorage)
-  const refreshSession = useCallback(async () => {
+  const refreshSession = useCallback(async (signal?: AbortSignal) => {
     try {
       const res = await fetch('/api/auth/session', {
         method: 'GET',
         cache: 'no-store',
         credentials: 'same-origin',
+        signal,
       });
       if (res.ok) {
         const data = await res.json();
@@ -39,7 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -47,16 +50,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refreshSession();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    refreshSession(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [refreshSession]);
 
-  const signin = async (pin: string) => {
+  const signin = async (email: string, pin: string) => {
     try {
       const res = await fetch('/api/auth/signin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ pin }),
+        body: JSON.stringify({ email, pin }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -70,13 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signup = async (name: string, pin: string) => {
+  const signup = async (name: string, email: string, pin: string) => {
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ name, pin }),
+        body: JSON.stringify({ name, email, pin }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -111,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signin,
         signup,
         logout,
-        refreshSession,
+        refreshSession: () => refreshSession(),
       }}
     >
       {children}

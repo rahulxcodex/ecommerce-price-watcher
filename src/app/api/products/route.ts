@@ -30,6 +30,11 @@ function corsResponse(body: unknown, init?: ResponseInit) {
   return res;
 }
 
+function isValidUuid(id: string | null | undefined): boolean {
+  if (!id) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 export async function GET(req: NextRequest) {
   try {
     const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
@@ -46,10 +51,25 @@ export async function GET(req: NextRequest) {
 
     // If logged in as regular user (not combined access), restrict to user's products
     if (session && !session.isCombined) {
-      query = query.eq('user_id', session.userId);
+      if (isValidUuid(session.userId)) {
+        query = query.eq('user_id', session.userId);
+      } else if (session.name) {
+        query = query.eq('created_by_name', session.name);
+      }
     }
 
-    const { data: products, error } = await query.order('created_at', { ascending: false });
+    let { data: products, error } = await query.order('created_at', { ascending: false });
+
+    // Graceful fallback if database column is uuid type and rejected non-uuid query string
+    if (error && error.message.includes('invalid input syntax for type uuid')) {
+      console.warn('Handling uuid type mismatch in products query, retrying safely...');
+      const fallbackQuery = session && !session.isCombined && session.name
+        ? db.from('products').select('*').eq('created_by_name', session.name)
+        : db.from('products').select('*');
+      const fallbackRes = await fallbackQuery.order('created_at', { ascending: false });
+      products = fallbackRes.data;
+      error = fallbackRes.error;
+    }
 
     if (error) {
       return corsResponse({ error: error.message }, { status: 500 });
@@ -102,7 +122,8 @@ export async function POST(req: NextRequest) {
     // Extract user from session cookie
     const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
     const session = verifySessionToken(token || '');
-    const defaultUserId = session?.userId || body.userId || null;
+    const rawUserId = session?.userId || body.userId || null;
+    const defaultUserId = isValidUuid(rawUserId) ? rawUserId : null;
     const createdByName = session?.name || body.createdByName || null;
 
     // 2. Check if product already tracked

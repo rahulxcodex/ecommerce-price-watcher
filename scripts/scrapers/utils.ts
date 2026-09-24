@@ -71,7 +71,21 @@ export async function fetchWithBackoff(
       if (res.status === 429 || res.status === 503) {
         if (attempt < maxRetries) {
           attempt++;
-          const delayMs = Math.floor(Math.random() * Math.min(10000, 1000 * Math.pow(2, attempt)));
+          let waitMs = 1000 * Math.pow(2, attempt);
+          const retryAfter = res.headers.get('retry-after');
+          if (retryAfter) {
+            const parsedSeconds = parseInt(retryAfter, 10);
+            if (!isNaN(parsedSeconds)) {
+              waitMs = Math.max(waitMs, parsedSeconds * 1000);
+            } else {
+              const parsedDate = Date.parse(retryAfter);
+              if (!isNaN(parsedDate)) {
+                waitMs = Math.max(waitMs, parsedDate - Date.now());
+              }
+            }
+          }
+          // Full jitter: uniformly distributed between 500ms and min(15000ms, waitMs)
+          const delayMs = Math.max(500, Math.floor(Math.random() * Math.min(15000, waitMs)));
           await delay(delayMs);
           continue;
         }
@@ -80,7 +94,7 @@ export async function fetchWithBackoff(
     } catch (err: unknown) {
       if (attempt < maxRetries) {
         attempt++;
-        const delayMs = Math.floor(Math.random() * Math.min(10000, 1000 * Math.pow(2, attempt)));
+        const delayMs = Math.max(500, Math.floor(Math.random() * Math.min(10000, 1000 * Math.pow(2, attempt))));
         await delay(delayMs);
         continue;
       }

@@ -80,23 +80,24 @@ export function validateAndSanitizeUrl(rawUrl: string): ValidatedURL {
   const hostname = parsed.hostname.toLowerCase();
 
   // 2. SSRF Loopback & Cloud Metadata Check
-  if (BLOCKED_HOSTS.includes(hostname) || hostname.endsWith('.internal') || hostname.endsWith('.local')) {
+  if (
+    BLOCKED_HOSTS.includes(hostname) ||
+    hostname.endsWith('.internal') ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.localhost')
+  ) {
     return { valid: false, error: 'Security violation: Access to internal network hosts is forbidden.' };
   }
 
-  // Check for private IPv4 blocks (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
-  const ipMatch = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (ipMatch) {
-    const [, a, b] = ipMatch.map(Number);
-    if (
-      a === 10 ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      a === 127 ||
-      a === 0
-    ) {
-      return { valid: false, error: 'Security violation: Private IP addresses are forbidden.' };
-    }
+  // Reject all raw IP addresses (IPv4, IPv6, octal, hex, integer representations)
+  // E-commerce products are strictly hosted on domain names, never raw IP addresses
+  const isDirectIp =
+    hostname.startsWith('[') ||
+    /^(\d+|0x[0-9a-f]+)(\.(\d+|0x[0-9a-f]+)){0,3}$/i.test(hostname) ||
+    /^[0-9a-f:]+$/i.test(hostname.replace(/^\[|\]$/g, ''));
+
+  if (isDirectIp) {
+    return { valid: false, error: 'Security violation: Direct IP access is forbidden.' };
   }
 
   // 3. Domain Whitelisting

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
 import {
   sendTelegramAlert,
   sendWhatsAppAlert,
@@ -11,6 +12,15 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
+    const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const session = verifySessionToken(token || '');
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Please sign in to send test notifications.' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { channel, value, apikey } = body;
 

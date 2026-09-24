@@ -40,12 +40,18 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('Push subscription save error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to register push subscription. Please ensure database migrations are applied.' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, subscription: data });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('Unexpected push subscription error:', err);
+    return NextResponse.json(
+      { error: 'An unexpected internal error occurred while saving push subscription.' },
+      { status: 500 }
+    );
   }
 }

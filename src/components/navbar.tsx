@@ -168,6 +168,7 @@ export function Navbar() {
               className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-slate-100 hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu-drawer"
             >
               {mobileMenuOpen ? <X className="w-5 h-5 text-emerald-400" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -177,7 +178,7 @@ export function Navbar() {
 
       {/* Mobile Drawer Dropdown Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-800 bg-slate-950/98 px-4 pt-3 pb-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-top-2 duration-150">
+        <div id="mobile-menu-drawer" className="md:hidden border-t border-slate-800 bg-slate-950/98 px-4 pt-3 pb-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-top-2 duration-150">
           {/* User profile card on mobile */}
           {user ? (
             <div className="mb-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">

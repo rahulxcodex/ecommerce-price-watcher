@@ -4,37 +4,52 @@ import {
   SESSION_MAX_AGE_SECONDS,
   createSessionToken,
 } from '@/lib/auth';
-import { authenticateByPin } from '@/lib/auth-db';
+import { authenticateByEmailAndPin } from '@/lib/auth-db';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { pin } = body;
+    const { email, pin } = body;
 
-    // Validate 4-digit numeric PIN
-    if (!pin || typeof pin !== 'string' || !/^\d{4}$/.test(pin.trim())) {
+    // Validate email
+    if (
+      !email ||
+      typeof email !== 'string' ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    ) {
       return NextResponse.json(
-        { error: 'Please enter your 4-digit numeric PIN.' },
+        { error: 'Please enter a valid email address.' },
         { status: 400 }
       );
     }
 
+    // Validate PIN (4 to 6 numeric digits)
+    if (!pin || typeof pin !== 'string' || !/^\d{4,6}$/.test(pin.trim())) {
+      return NextResponse.json(
+        { error: 'Please enter your 4-6 digit numeric PIN.' },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
     const cleanPin = pin.trim();
 
-    // Authenticate by PIN only
-    const user = await authenticateByPin(cleanPin);
-    if (!user) {
+    // Authenticate by Email and PIN
+    const result = await authenticateByEmailAndPin(cleanEmail, cleanPin);
+    if (!result.user) {
       return NextResponse.json(
         {
           error:
-            'Invalid 4-digit PIN. If you have not created an account yet, please sign up.',
+            result.error ||
+            'Invalid credentials. Please verify your email and PIN or create a new account.',
         },
         { status: 401 }
       );
     }
 
+    const user = result.user;
     const token = createSessionToken(user);
 
     const res = NextResponse.json({
@@ -45,7 +60,7 @@ export async function POST(req: NextRequest) {
         : `Welcome back ${user.name}!`,
     });
 
-    // Set secure server-side HTTP-only cookie (no local session / localStorage)
+    // Set secure server-side HTTP-only cookie
     res.cookies.set({
       name: AUTH_COOKIE_NAME,
       value: token,
@@ -59,6 +74,10 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('Error during signin:', err);
+    return NextResponse.json(
+      { error: 'An unexpected error occurred during signin.' },
+      { status: 500 }
+    );
   }
 }

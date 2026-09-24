@@ -23,18 +23,43 @@ async function main() {
     process.exit(1);
   }
 
-  // 1. Fetch active products
-  const { data: rawProducts, error: prodErr } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_active', true);
+  // 1. Fetch active products using paginated chunking to prevent memory and connection starvation
+  const PAGE_SIZE = 50;
+  let rawProducts: Product[] = [];
+  let page = 0;
+  let hasMore = true;
 
-  if (prodErr) {
-    console.error('Failed to load products from database:', prodErr);
-    process.exit(1);
+  while (hasMore) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data: pageData, error: prodErr } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_active', true)
+      .order('last_checked_at', { ascending: true, nullsFirst: true })
+      .range(from, to);
+
+    if (prodErr) {
+      console.error(`Failed to load products batch [page ${page}]:`, prodErr);
+      if (rawProducts.length === 0) {
+        process.exit(1);
+      }
+      break;
+    }
+
+    if (!pageData || pageData.length === 0) {
+      hasMore = false;
+    } else {
+      rawProducts = rawProducts.concat(pageData as Product[]);
+      if (pageData.length < PAGE_SIZE) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    }
   }
 
-  if (!rawProducts || rawProducts.length === 0) {
+  if (rawProducts.length === 0) {
     console.log('No active products found to track.');
     return;
   }

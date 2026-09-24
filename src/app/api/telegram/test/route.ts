@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
 import { sendTelegramAlert } from '@scripts/notify';
 
 export async function POST(req: NextRequest) {
   try {
+    const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const session = verifySessionToken(token || '');
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Please sign in to send test notifications.' },
+        { status: 401 }
+      );
+    }
+
     const { chatId } = await req.json();
 
     if (!chatId || typeof chatId !== 'string') {

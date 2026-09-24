@@ -17,8 +17,14 @@ export async function scrapeAmazon(url: string): Promise<ScrapeResult> {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    // Bot detection check
-    if ($('title').text().includes('Robot Check') || $('title').text().includes('CAPTCHA')) {
+    // Bot detection check (title + DOM form elements)
+    const titleText = $('title').text().toLowerCase();
+    const hasCaptchaForm =
+      $('form[action*="validateCaptcha"]').length > 0 ||
+      $('#captchacharacters').length > 0 ||
+      $('#auth-captcha-image-container').length > 0;
+
+    if (titleText.includes('robot check') || titleText.includes('captcha') || hasCaptchaForm) {
       return { success: false, error: 'Amazon triggered bot verification/CAPTCHA' };
     }
 
