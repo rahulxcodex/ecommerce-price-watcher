@@ -53,12 +53,23 @@ export async function POST(req: NextRequest) {
       created_by_name: string | null;
       is_active: boolean;
       check_status: 'ok';
+      price_source: 'browser_extension';
+      version: number;
+      last_attempted_at: string;
+      last_successful_scrape_at: string;
+      last_checked_at: string;
     }> = [];
 
     const skippedUrls: string[] = [];
 
+    const nowIso = new Date().toISOString();
+
     for (const item of rawProducts) {
-      if (!item.url) continue;
+      if (!item.url || typeof item.url !== 'string') continue;
+      if (item.url.length > 2048) {
+        skippedUrls.push(item.url.slice(0, 100));
+        continue;
+      }
 
       const urlValidation = validateAndSanitizeUrl(item.url);
       if (!urlValidation.valid || !urlValidation.cleanUrl) {
@@ -77,16 +88,21 @@ export async function POST(req: NextRequest) {
       validItems.push({
         url: cleanUrl,
         platform,
-        title: (item.title || `${platform.toUpperCase()} Product`).slice(0, 300),
+        title: (item.title || `${platform.toUpperCase()} Product`).slice(0, 500),
         current_price: price,
         lowest_price: price,
         highest_price: item.originalPrice && Number(item.originalPrice) > price ? Number(item.originalPrice) : price,
         currency: 'INR',
-        image_url: item.imageUrl || null,
+        image_url: item.imageUrl ? String(item.imageUrl).slice(0, 2048) : null,
         user_id: userId,
         created_by_name: createdByName,
         is_active: true,
         check_status: 'ok',
+        price_source: 'browser_extension',
+        version: 1,
+        last_attempted_at: nowIso,
+        last_successful_scrape_at: nowIso,
+        last_checked_at: nowIso,
       });
     }
 

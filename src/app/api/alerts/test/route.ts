@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 import {
   sendTelegramAlert,
   sendWhatsAppAlert,
@@ -18,6 +19,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized: Please sign in to send test notifications.' },
         { status: 401 }
+      );
+    }
+
+    // Rate limit: 5 test alerts per 10 minutes (600s) per user account
+    const alertLimit = await checkRateLimit(`alert_test:${session.userId}`, 5, 600);
+    if (!alertLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Test notification rate limit reached. Please wait ${alertLimit.retryAfterSeconds}s before sending more test alerts.`,
+          retryAfter: alertLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(alertLimit.retryAfterSeconds) },
+        }
       );
     }
 

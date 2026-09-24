@@ -1,3 +1,24 @@
+import { getAdminEmail } from '@/lib/constants';
+
+export interface PriceAlertData {
+  productTitle: string;
+  productUrl: string;
+  previousPrice: number;
+  newPrice: number;
+  lowestPrice: number;
+  currency?: string;
+  isAllTimeLow: boolean;
+  isBackInStock?: boolean;
+  imageUrl?: string;
+  platform?: string;
+}
+
+export interface NotificationProvider {
+  name: string;
+  isConfigured(settings: Record<string, unknown>): boolean;
+  send(settings: Record<string, unknown>, alert: PriceAlertData): Promise<{ success: boolean; error?: string }>;
+}
+
 export interface PriceDropNotification {
   chatId: string;
   productTitle: string;
@@ -196,7 +217,7 @@ export async function sendScraperFailureAlert(data: {
   to?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const apiUrl = process.env.APPSCRIPT_EMAIL_URL;
-  const recipient = data.to || process.env.SCRAPER_ALERT_EMAIL || process.env.APPSCRIPT_TO_EMAIL || 'rahulr24g@gmail.com';
+  const recipient = data.to || process.env.SCRAPER_ALERT_EMAIL || process.env.APPSCRIPT_TO_EMAIL || getAdminEmail();
 
   if (!apiUrl) {
     console.warn(`[sendScraperFailureAlert] APPSCRIPT_EMAIL_URL not set. Failure alert simulated for ${recipient}: ${data.error}`);
@@ -272,6 +293,81 @@ URL: ${data.productUrl}
 }
 
 /**
+ * Sends a consolidated failure summary email covering all failed items in a single scrape run.
+ * Prevents email alert storming when an anti-bot or network block affects dozens of items.
+ */
+export async function sendScraperBatchFailureSummaryAlert(data: {
+  totalFailures: number;
+  totalProductsChecked: number;
+  byPlatform: Record<string, number>;
+  sampleFailures: Array<{ title: string; url: string; platform: string; error: string }>;
+  to?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const apiUrl = process.env.APPSCRIPT_EMAIL_URL;
+  const recipient = data.to || process.env.SCRAPER_ALERT_EMAIL || process.env.APPSCRIPT_TO_EMAIL || getAdminEmail();
+
+  if (!apiUrl) {
+    console.warn(`[sendScraperBatchFailureSummaryAlert] APPSCRIPT_EMAIL_URL not set. Summary simulated for ${recipient}: ${data.totalFailures} failures.`);
+    return { success: false, error: 'APPSCRIPT_EMAIL_URL is not configured.' };
+  }
+
+  const subject = `⚠️ [Scraper Incident] ${data.totalFailures} failures across ${data.totalProductsChecked} active products`;
+  const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  const platformBreakdownHtml = Object.entries(data.byPlatform)
+    .map(([p, count]) => `<li><strong style="text-transform:uppercase;">${p}:</strong> ${count} failure(s)</li>`)
+    .join('');
+
+  const samplesHtml = data.sampleFailures
+    .slice(0, 5)
+    .map(
+      (s) => `
+      <div style="margin-bottom: 12px; padding: 10px; background: #1e293b; border-radius: 8px;">
+        <div style="font-weight: 600; color: #f1f5f9;">${s.title.slice(0, 50)} (${s.platform.toUpperCase()})</div>
+        <div style="color: #ef4444; font-family: monospace; font-size: 13px; margin: 4px 0;">${s.error}</div>
+        <a href="${s.url}" style="color: #38bdf8; font-size: 12px;">Store Link</a>
+      </div>`
+    )
+    .join('');
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 16px; border: 1px solid #1e293b;">
+      <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <h2 style="color: #f87171; margin: 0 0 8px 0; font-size: 18px;">⚠️ Scraper Run Incident Report</h2>
+        <p style="margin: 0; color: #cbd5e1; font-size: 14px;">The automated scrape cycle completed with ${data.totalFailures} extraction failure(s) out of ${data.totalProductsChecked} active products checked.</p>
+      </div>
+      <h3 style="color: #94a3b8; font-size: 15px; margin-bottom: 8px;">Failures by Storefront</h3>
+      <ul style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;">
+        ${platformBreakdownHtml}
+      </ul>
+      <h3 style="color: #94a3b8; font-size: 15px; margin-bottom: 8px;">Sample Failed Items</h3>
+      ${samplesHtml}
+      <div style="color: #64748b; font-size: 12px; margin-top: 20px;">Generated at: ${dateStr}</div>
+    </div>
+  `;
+
+  try {
+    const apiKey = process.env.APPSCRIPT_API_KEY;
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'scraper_failure_summary',
+        apiKey,
+        to: recipient,
+        subject,
+        htmlBody,
+        textBody: `Scraper Incident: ${data.totalFailures} failures across ${data.totalProductsChecked} products.`,
+      }),
+    });
+    const result = await res.json().catch(() => ({}));
+    return { success: res.ok, error: result.error };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
  * Sends watchdog alert when scraping has not run for 3 or more hours
  */
 export async function sendScraperStaleAlert(data: {
@@ -281,7 +377,7 @@ export async function sendScraperStaleAlert(data: {
   to?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const apiUrl = process.env.APPSCRIPT_EMAIL_URL;
-  const recipient = data.to || process.env.SCRAPER_ALERT_EMAIL || process.env.APPSCRIPT_TO_EMAIL || 'rahulr24g@gmail.com';
+  const recipient = data.to || process.env.SCRAPER_ALERT_EMAIL || process.env.APPSCRIPT_TO_EMAIL || getAdminEmail();
 
   if (!apiUrl) {
     console.warn(`[sendScraperStaleAlert] APPSCRIPT_EMAIL_URL not set. Stale alert simulated for ${recipient}: ${data.hoursSinceLastScrape}h stale.`);

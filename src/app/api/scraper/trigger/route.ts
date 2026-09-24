@@ -12,6 +12,7 @@ import { delay } from '@scripts/scrapers/utils';
 import { dispatchAlerts, sendScraperFailureAlert, sendScraperStaleAlert } from '@scripts/notify';
 import { validateScrapedPrice } from '@/lib/security';
 import { Product, AppSettings } from '@/types';
+import { getAdminEmail } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60s for serverless execution
@@ -51,15 +52,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const adminEmail = getAdminEmail().toLowerCase().trim();
     const isAuthorized =
       Boolean(session?.isCombined) ||
-      session?.email?.toLowerCase().trim() === 'rahulr24g@gmail.com';
+      session?.email?.toLowerCase().trim() === adminEmail;
 
     if (!body.productId && !isAuthorized) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Forbidden: Manual batch scraper trigger is exclusively available to authorized account (rahulr24g@gmail.com).',
+          error: `Forbidden: Manual batch scraper trigger is exclusively available to authorized account (${adminEmail}).`,
         },
         { status: 403 }
       );
@@ -95,13 +97,13 @@ export async function POST(req: NextRequest) {
 
     if (mostRecentCheck > 0) {
       const elapsedHours = (Date.now() - mostRecentCheck) / (1000 * 60 * 60);
-      if (elapsedHours >= 3.0) {
-        console.warn(`🚨 WATCHDOG: Last scrape was ${elapsedHours.toFixed(1)}h ago (>= 3h threshold). Dispatching alert...`);
+      if (elapsedHours >= 5.0) {
+        console.warn(`🚨 WATCHDOG: Last scrape was ${elapsedHours.toFixed(1)}h ago (>= 5h threshold). Dispatching alert...`);
         await sendScraperStaleAlert({
           hoursSinceLastScrape: Math.round(elapsedHours * 10) / 10,
           lastScrapedAt: new Date(mostRecentCheck).toISOString(),
           totalActiveProducts: products.length,
-          to: 'rahulr24g@gmail.com',
+          to: getAdminEmail(),
         });
       }
     }
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
       telegram_chat_id: process.env.TELEGRAM_CHAT_ID || null,
       whatsapp_phone: process.env.WHATSAPP_PHONE || null,
       whatsapp_apikey: process.env.WHATSAPP_API_KEY || null,
-      email: process.env.APPSCRIPT_TO_EMAIL || 'rahulr24g@gmail.com',
+      email: process.env.APPSCRIPT_TO_EMAIL || getAdminEmail(),
       discord_webhook: process.env.DISCORD_WEBHOOK_URL || null,
       ntfy_topic: process.env.NTFY_TOPIC || null,
       notification_preference: 'all_time_low',
@@ -200,7 +202,7 @@ export async function POST(req: NextRequest) {
           platform: product.platform,
           error: errorMessage,
           retryAttempts: attemptsMade,
-          to: 'rahulr24g@gmail.com',
+          to: getAdminEmail(),
         });
 
         resultsSummary.push({ id: product.id, title: product.title, status: 'error' });
@@ -229,7 +231,7 @@ export async function POST(req: NextRequest) {
           platform: product.platform,
           error: sanityReason,
           retryAttempts: attemptsMade,
-          to: 'rahulr24g@gmail.com',
+          to: getAdminEmail(),
         });
         resultsSummary.push({ id: product.id, title: product.title, status: 'sanity_failed' });
         continue;

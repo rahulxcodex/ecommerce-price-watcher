@@ -87,6 +87,24 @@ export async function checkRateLimit(
 
   try {
     const db = getDbClient();
+
+    // 1. Preferred: Execute atomic stored procedure increment_rate_limit
+    const { data: rpcResult, error: rpcErr } = await db.rpc('increment_rate_limit', {
+      p_key: key,
+      p_limit: limit,
+      p_window_seconds: windowSeconds,
+    });
+
+    if (!rpcErr && rpcResult && typeof rpcResult === 'object') {
+      const res = rpcResult as Record<string, unknown>;
+      return {
+        allowed: Boolean(res.allowed),
+        remaining: Number(res.remaining ?? 0),
+        retryAfterSeconds: Number(res.retry_after_seconds ?? 0),
+      };
+    }
+
+    // 2. Fallback: Table-level query if RPC is not yet compiled on target DB instance
     const { data: record, error: selectErr } = await db
       .from('rate_limits')
       .select('*')

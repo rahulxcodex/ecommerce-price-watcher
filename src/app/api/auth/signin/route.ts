@@ -6,6 +6,7 @@ import {
 } from '@/lib/auth';
 import { authenticateByEmailAndPin } from '@/lib/auth-db';
 import { checkSigninRateLimit, resetSigninRateLimit } from '@/lib/rate-limit';
+import { getClientIp } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     const cleanPin = pin.trim();
 
     // Rate limit signin attempts by Email and Client IP to prevent brute-force attacks
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const clientIp = getClientIp(req);
     const emailLimit = await checkSigninRateLimit(`email:${cleanEmail}`, 5, 900); // 5 attempts per 15 mins
     const ipLimit = await checkSigninRateLimit(`ip:${clientIp}`, 15, 900); // 15 attempts per IP per 15 mins
 
@@ -72,8 +73,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Reset rate limiter on successful authentication
+    // Reset rate limiter on successful authentication for both email and client IP
     await resetSigninRateLimit(`email:${cleanEmail}`);
+    if (clientIp && clientIp !== 'unknown') {
+      await resetSigninRateLimit(`ip:${clientIp}`);
+    }
 
     const user = result.user;
     const token = createSessionToken(user);

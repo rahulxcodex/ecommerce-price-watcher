@@ -443,3 +443,29 @@ export function checkSearchRateLimit(
   };
 }
 
+/**
+ * Normalizes client IP address from proxy headers (x-forwarded-for, x-real-ip, cf-connecting-ip)
+ * Extracts the first public caller IP and protects against header injection or comma lists.
+ */
+export function getClientIp(req: { headers: { get(name: string): string | null } }): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const firstIp = forwarded.split(',')[0].trim();
+    if (firstIp && firstIp.length <= 45) {
+      return firstIp;
+    }
+  }
+
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp && realIp.trim().length <= 45) {
+    return realIp.trim();
+  }
+
+  const cfIp = req.headers.get('cf-connecting-ip');
+  if (cfIp && cfIp.trim().length <= 45) {
+    return cfIp.trim();
+  }
+
+  return '127.0.0.1';
+}
+

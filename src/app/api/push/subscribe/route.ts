@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
 import { validatePushEndpoint } from '@/lib/security';
+import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,15 @@ function getDb() {
 
 export async function POST(req: NextRequest) {
   try {
+    const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const session = verifySessionToken(token || '');
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Authentication required to register web push subscriptions.' },
+        { status: 401 }
+      );
+    }
+
     const db = getDb();
     const body = await req.json();
     const { subscription } = body;
@@ -28,27 +38,28 @@ export async function POST(req: NextRequest) {
     }
 
     const upsertPayload: Record<string, unknown> = {
+      user_id: session.userId,
       endpoint: subscription.endpoint,
       keys: subscription.keys,
     };
 
-    let { data, error } = await db
+    const { data, error } = await db
       .from('push_subscriptions')
       .upsert(upsertPayload, { onConflict: 'endpoint' })
       .select()
       .maybeSingle();
 
     if (error) {
-      console.error('Push subscription save error:', error);
+      console.error('[API push/subscribe] Save error:', error);
       return NextResponse.json(
-        { error: 'Failed to register push subscription. Please ensure database migrations are applied.' },
+        { error: 'Failed to register push subscription.' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ success: true, subscription: data });
   } catch (err: unknown) {
-    console.error('Unexpected push subscription error:', err);
+    console.error('[API push/subscribe] Unexpected error:', err);
     return NextResponse.json(
       { error: 'An unexpected internal error occurred while saving push subscription.' },
       { status: 500 }

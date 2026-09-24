@@ -15,7 +15,7 @@ Deployed **100% free** on Vercel, Supabase, GitHub Actions, and Telegram Bot API
 [ Supabase PostgreSQL ] (Free 500MB DB with RLS Security)
          ▲
          │
-[ GitHub Actions Cron ] (Runs every 6 hours on free Linux runners)
+[ GitHub Actions Cron ] (Runs every 4 hours on free Linux runners)
          │  Scrapes Amazon, Flipkart, Meesho, Myntra, Ajio, Westside
          ▼
 [ Telegram Bot Alerts ] (100% Free, Unlimited Instant Push Notifications)
@@ -104,4 +104,4 @@ npm run scrape
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `TELEGRAM_BOT_TOKEN`
 
-The GitHub Actions workflow `.github/workflows/price-check.yml` will automatically check prices every 6 hours and ping your Telegram on price drops.
+The GitHub Actions workflow `.github/workflows/price-check.yml` will automatically check prices every 4 hours and ping your Telegram on price drops.

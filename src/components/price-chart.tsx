@@ -20,16 +20,10 @@ interface PriceChartProps {
 }
 
 export function PriceChart({ history, lowestPrice }: PriceChartProps) {
-  if (!history || history.length === 0) {
-    return (
-      <div className="h-64 flex flex-col items-center justify-center text-champagne-faint bg-surface border border-surface-border rounded-sm">
-        <p className="text-sm font-medium">No price history recorded yet.</p>
-        <p className="text-xs text-champagne-faint mt-1 font-mono">Price checks occur automatically every 4 hours.</p>
-      </div>
-    );
-  }
-
   const { data, minPrice, maxPrice, padding } = useMemo(() => {
+    if (!history || history.length === 0) {
+      return { data: [], minPrice: 0, maxPrice: 0, padding: 50 };
+    }
     const chartData = history.map((item) => {
       const d = new Date(item.recorded_at);
       return {
@@ -45,6 +39,15 @@ export function PriceChart({ history, lowestPrice }: PriceChartProps) {
 
     return { data: chartData, minPrice: min, maxPrice: max, padding: pad };
   }, [history]);
+
+  if (!history || history.length === 0) {
+    return (
+      <div className="h-64 flex flex-col items-center justify-center text-champagne-faint bg-surface border border-surface-border rounded-sm">
+        <p className="text-sm font-medium">No price history recorded yet.</p>
+        <p className="text-xs text-champagne-faint mt-1 font-mono">Price checks occur automatically every 4 hours.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-surface p-4 rounded-sm border border-surface-border">

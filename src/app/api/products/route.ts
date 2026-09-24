@@ -291,6 +291,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Insert new product (with graceful schema cache fallback)
+    // 5. Insert new product with authoritative schema fields
+    const nowIso = new Date().toISOString();
+    const isClientSupplied = Boolean(clientPrice && Number(clientPrice) > 0);
     const insertPayload: Record<string, unknown> = {
       user_id: defaultUserId,
       created_by_name: createdByName,
@@ -308,101 +311,25 @@ export async function POST(req: NextRequest) {
       bank_offers: bankOffers,
       currency: 'INR',
       is_active: true,
-      last_checked_at: new Date().toISOString(),
+      price_source: isClientSupplied ? 'browser_extension' : 'server_scrape',
+      version: 1,
+      last_attempted_at: nowIso,
+      last_successful_scrape_at: nowIso,
+      last_checked_at: nowIso,
     };
 
-    let product;
-    const { data: initialInsert, error: insertError } = await db
+    const { data: product, error: insertError } = await db
       .from('products')
       .insert(insertPayload)
       .select()
       .single();
 
     if (insertError) {
-      const isSchemaCacheError =
-        insertError.message.includes('schema cache') ||
-        insertError.message.includes('created_by_name') ||
-        insertError.message.includes('bank_offers') ||
-        insertError.message.includes('selected_size') ||
-        insertError.message.includes('selected_color') ||
-        insertError.message.includes('notes') ||
-        insertError.code === 'PGRST204';
-
-      if (isSchemaCacheError) {
-        // Fallback to core columns in case migration 004 was not yet applied
-        const corePayload: Record<string, unknown> = {
-          user_id: defaultUserId,
-          url: cleanUrl,
-          platform,
-          title,
-          image_url: imageUrl,
-          current_price: price,
-          lowest_price: price,
-          highest_price: price,
-          target_price: targetPrice ? Number(targetPrice) : null,
-          currency: 'INR',
-          is_active: true,
-          last_checked_at: new Date().toISOString(),
-        };
-
-        const { data: retryProduct, error: retryError } = await db
-          .from('products')
-          .insert(corePayload)
-          .select()
-          .single();
-
-        if (retryError) {
-          if (
-            retryError.message.includes('products_user_id_fkey') ||
-            retryError.message.includes('violates not-null constraint')
-          ) {
-            return corsResponse(
-              {
-                error:
-                  'Database Setup Notice: Please run "supabase/RUN_ALL_PENDING_MIGRATIONS.sql" in your Supabase SQL Editor.',
-                details: retryError.message,
-              },
-              { status: 500 }
-            );
-          } else if (retryError.message.includes('platform_type')) {
-            return corsResponse(
-              {
-                error:
-                  `Database Migration Required: Your Supabase database is missing support for ${platform.toUpperCase()}. Please run the script in "supabase/RUN_ALL_PENDING_MIGRATIONS.sql" in your Supabase SQL Editor to enable all stores.`,
-                details: retryError.message,
-              },
-              { status: 500 }
-            );
-          }
-          return corsResponse({ error: retryError.message }, { status: 500 });
-        }
-        product = retryProduct;
-      } else if (
-        insertError.message.includes('products_user_id_fkey') ||
-        insertError.message.includes('violates not-null constraint')
-      ) {
-        return corsResponse(
-          {
-            error:
-              'Database Setup Notice: Please run the SQL in "supabase/RUN_ALL_PENDING_MIGRATIONS.sql" in your Supabase SQL Editor to allow public tracking without auth.',
-            details: insertError.message,
-          },
-          { status: 500 }
-        );
-      } else if (insertError.message.includes('platform_type')) {
-        return corsResponse(
-          {
-            error:
-              `Database Migration Required: Your Supabase database is missing support for ${platform.toUpperCase()}. Please run the script in "supabase/RUN_ALL_PENDING_MIGRATIONS.sql" in your Supabase SQL Editor to enable all stores and features.`,
-            details: insertError.message,
-          },
-          { status: 500 }
-        );
-      } else {
-        return corsResponse({ error: insertError.message }, { status: 500 });
-      }
-    } else {
-      product = initialInsert;
+      console.error('[API products POST] Database insertion error:', insertError);
+      return corsResponse(
+        { error: 'Unable to track product. Please verify database migrations are current.' },
+        { status: 500 }
+      );
     }
 
     // 6. Record initial price history entry

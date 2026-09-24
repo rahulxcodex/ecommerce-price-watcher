@@ -34,17 +34,20 @@ function getAuthSecret(): string {
   return secret;
 }
 
-export const COMBINED_ACCESS_EMAIL = 'rahulr24g@gmail.com';
+import { getAdminEmail } from './constants';
+
+export const ADMIN_EMAIL = getAdminEmail();
+export const COMBINED_ACCESS_EMAIL = ADMIN_EMAIL;
 
 /**
  * Determine if a user qualifies for special combined access.
- * Strictly restricted to email rahulr24g@gmail.com.
+ * Strictly restricted to configured administrator email (defaulting to rahulr24g@gmail.com).
  * No access is granted by name (even Rahul or Nisha), nor to any other email.
  */
 export function isCombinedAccount(nameOrEmail?: string, email?: string): boolean {
   const candidateEmail = email || (nameOrEmail && nameOrEmail.includes('@') ? nameOrEmail : undefined);
   if (!candidateEmail) return false;
-  return candidateEmail.trim().toLowerCase() === COMBINED_ACCESS_EMAIL;
+  return candidateEmail.trim().toLowerCase() === getAdminEmail().toLowerCase();
 }
 
 /**

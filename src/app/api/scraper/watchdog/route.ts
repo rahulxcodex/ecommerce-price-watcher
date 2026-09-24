@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
 import { supabase as publicSupabase } from '@/lib/supabase';
 import { sendScraperStaleAlert } from '@scripts/notify';
+import { SCRAPER_STALE_THRESHOLD_HOURS, getAdminEmail } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,7 @@ async function handleWatchdog(req: NextRequest) {
     const now = Date.now();
     const elapsedMs = mostRecentTimestamp > 0 ? now - mostRecentTimestamp : Infinity;
     const elapsedHours = Math.round((elapsedMs / (1000 * 60 * 60)) * 10) / 10;
-    const isStale = elapsedHours >= 5.0 || forceAlert;
+    const isStale = elapsedHours >= SCRAPER_STALE_THRESHOLD_HOURS || forceAlert;
 
     let alertSent = false;
     let alertError: string | undefined;
@@ -56,7 +57,7 @@ async function handleWatchdog(req: NextRequest) {
         hoursSinceLastScrape: isFinite(elapsedHours) ? elapsedHours : 99,
         lastScrapedAt: mostRecentTimestamp > 0 ? new Date(mostRecentTimestamp).toISOString() : null,
         totalActiveProducts,
-        to: 'rahulr24g@gmail.com',
+        to: getAdminEmail(),
       });
       alertSent = res.success;
       alertError = res.error;
@@ -65,7 +66,7 @@ async function handleWatchdog(req: NextRequest) {
     return NextResponse.json({
       success: true,
       status: isStale ? 'stale' : 'healthy',
-      thresholdHours: 3,
+      thresholdHours: SCRAPER_STALE_THRESHOLD_HOURS,
       elapsedHours: isFinite(elapsedHours) ? elapsedHours : null,
       lastScrapedAt: mostRecentTimestamp > 0 ? new Date(mostRecentTimestamp).toISOString() : null,
       totalActiveProducts,

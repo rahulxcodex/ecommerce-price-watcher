@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
   PlusCircle,
@@ -63,12 +63,12 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const isMineProduct = (p: Product) => {
+  const isMineProduct = useCallback((p: Product) => {
     if (user?.name && p.created_by_name) {
       if (p.created_by_name.toLowerCase().trim() === user.name.toLowerCase().trim()) return true;
     }
     return Boolean(p.created_by_name?.toLowerCase().includes('rahul'));
-  };
+  }, [user?.name]);
 
   const filteredProducts = useMemo(() =>
     products.filter((p) => {
@@ -84,7 +84,7 @@ export default function DashboardPage() {
           : !isMine;
       return matchesSearch && matchesPlatform && matchesLow && matchesCreator;
     }),
-    [products, search, selectedPlatform, onlyAllTimeLow, creatorFilter, user]
+    [products, search, selectedPlatform, onlyAllTimeLow, creatorFilter, isMineProduct]
   );
 
   const sortedProducts = useMemo(() =>
@@ -109,11 +109,11 @@ export default function DashboardPage() {
 
   const myCount = useMemo(() => {
     return products.filter((p) => isMineProduct(p)).length;
-  }, [products, user]);
+  }, [products, isMineProduct]);
 
   const otherCount = useMemo(() => {
     return products.filter((p) => !isMineProduct(p)).length;
-  }, [products, user]);
+  }, [products, isMineProduct]);
 
   // Watchdog metric: updated to 5.0h threshold for 4-hour cron schedule
   const latestScrapeTime = useMemo(() => {

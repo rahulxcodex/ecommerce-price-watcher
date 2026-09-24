@@ -28,28 +28,50 @@ export function getDefaultHeaders(): Record<string, string> {
 export function parsePrice(raw: string): number | null {
   if (!raw || typeof raw !== 'string') return null;
 
-  // 1. Look for currency symbol followed by price: ₹1,499 or Rs. 1499.00
-  const currencyMatch = raw.match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  // 1. Sanitize text by stripping non-price numbers that pollute parsing:
+  // - Discounts: "83% off", "Save 20%", "flat 50% discount"
+  // - Quantities: "Pack of 2", "Set of 3"
+  // - Monthly EMIs: "EMI ₹432/month", "EMI starts at ₹1,200 / month"
+  // - Ratings: "4.5 stars", "1,245 ratings", "85 reviews"
+  let sanitized = raw
+    .replace(/\b\d{1,2}%\s*(?:off|discount|saved)?\b/gi, ' ')
+    .replace(/\bsave\s*(?:up to\s*)?(?:₹|rs\.?|inr)?\s*\d{1,2}%\b/gi, ' ')
+    .replace(/\b(?:pack|set)\s*(?:of)?\s*\d+\b/gi, ' ')
+    .replace(/\bemi\s*(?:starts\s*at\s*)?(?:₹|rs\.?|inr)?\s*[\d,]+(?:\.\d{1,2})?\s*(?:\/|\s*per\s*)\s*month\b/gi, ' ')
+    .replace(/\b[\d.]+\s*(?:out of 5|stars|ratings|reviews|votes|bought|views)\b/gi, ' ');
+
+  // 2. High confidence: Currency symbol adjacent to price (e.g. ₹1,499 or Rs. 1499.00 or INR 1,499)
+  const currencyMatch = sanitized.match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)/i);
   if (currencyMatch && currencyMatch[1]) {
     const val = parseFloat(currencyMatch[1].replace(/,/g, ''));
-    if (!isNaN(val) && val > 0) return val;
+    if (!isNaN(val) && val >= 10 && val <= 50_000_000) {
+      return val;
+    }
   }
 
-  // 2. Fallback: Clean commas and currency signs, match valid decimal
-  const cleaned = raw.replace(/[₹$,\s]/g, '').trim();
+  // 3. Structured number with standard thousand separator (e.g. "1,299.00" or "1,499")
+  const formattedMatch = sanitized.match(/\b\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?\b/);
+  if (formattedMatch && formattedMatch[0]) {
+    const val = parseFloat(formattedMatch[0].replace(/,/g, ''));
+    if (!isNaN(val) && val >= 10 && val <= 50_000_000) {
+      return val;
+    }
+  }
+
+  // 4. Fallback: Clean remaining text and test numeric candidates within e-commerce threshold
+  const cleaned = sanitized.replace(/[₹$,\s]/g, '').trim();
   const matches = Array.from(cleaned.matchAll(/(\d+(?:\.\d{1,2})?)/g));
   if (matches.length === 0) return null;
 
-  // If multiple numbers exist (e.g. "Pack of 2 - 1499"), pick the most plausible price (> 20)
   for (const m of matches) {
     const candidate = parseFloat(m[1]);
-    if (!isNaN(candidate) && candidate >= 10) {
+    if (!isNaN(candidate) && candidate >= 20 && candidate <= 50_000_000) {
       return candidate;
     }
   }
 
   const fallback = parseFloat(matches[0][1]);
-  return isNaN(fallback) ? null : fallback;
+  return isNaN(fallback) || fallback < 10 ? null : fallback;
 }
 
 export async function delay(ms: number): Promise<void> {

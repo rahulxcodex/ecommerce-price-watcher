@@ -9,6 +9,74 @@ export interface ExtractedProductData {
   isOutOfStock?: boolean;
 }
 
+interface JsonLdOffer {
+  price?: number | string;
+  lowPrice?: number | string;
+  highPrice?: number | string;
+  priceCurrency?: string;
+  availability?: string;
+}
+
+/**
+ * Deterministically ranks and selects the most relevant offer from a JSON-LD offers array.
+ * Priorities:
+ * 1. Filter out-of-stock items if in-stock options exist
+ * 2. Match currency (prefers INR)
+ * 3. Select lowest price among valid seller offers
+ */
+export function selectBestOffer(rawOffers: unknown): {
+  price: number | null;
+  currency: string;
+  isOutOfStock: boolean;
+} {
+  if (!rawOffers) {
+    return { price: null, currency: 'INR', isOutOfStock: false };
+  }
+
+  const list: JsonLdOffer[] = Array.isArray(rawOffers)
+    ? rawOffers
+    : typeof rawOffers === 'object'
+    ? [rawOffers as JsonLdOffer]
+    : [];
+
+  if (list.length === 0) {
+    return { price: null, currency: 'INR', isOutOfStock: false };
+  }
+
+  const parsedOffers = list.map((offer) => {
+    const rawPrice = offer.price ?? offer.lowPrice ?? offer.highPrice;
+    const price = typeof rawPrice === 'number' ? rawPrice : parsePrice(String(rawPrice || ''));
+    const currency = offer.priceCurrency ? String(offer.priceCurrency).toUpperCase() : 'INR';
+    const avail = String(offer.availability || '').toLowerCase();
+    const isOutOfStock = avail.includes('outofstock');
+    return { price, currency, isOutOfStock };
+  });
+
+  const validOffers = parsedOffers.filter((o) => o.price !== null && o.price > 0);
+  if (validOffers.length === 0) {
+    const isOutOfStock = parsedOffers.some((o) => o.isOutOfStock);
+    return { price: null, currency: 'INR', isOutOfStock };
+  }
+
+  // Prefer in-stock offers if available
+  const inStockOffers = validOffers.filter((o) => !o.isOutOfStock);
+  const candidatePool = inStockOffers.length > 0 ? inStockOffers : validOffers;
+
+  // Prefer INR offers if mixed currencies exist
+  const inrOffers = candidatePool.filter((o) => o.currency === 'INR');
+  const currencyPool = inrOffers.length > 0 ? inrOffers : candidatePool;
+
+  // Pick lowest price among eligible candidates
+  currencyPool.sort((a, b) => (a.price! - b.price!));
+  const best = currencyPool[0];
+
+  return {
+    price: best.price,
+    currency: best.currency,
+    isOutOfStock: best.isOutOfStock,
+  };
+}
+
 /**
  * Tier 1: Schema.org / JSON-LD extraction.
  * Google Shopping & SEO standard across all e-commerce engines.
@@ -37,28 +105,7 @@ export function extractJsonLdProduct($: cheerio.CheerioAPI): ExtractedProductDat
           (Array.isArray(item['@type']) && item['@type'].includes('Product'));
 
         if (isProduct) {
-          let price: number | null = null;
-          let currency = 'INR';
-          let isOutOfStock = false;
-
-          if (item.offers) {
-            const offer = Array.isArray(item.offers) ? item.offers[0] : item.offers;
-            if (offer) {
-              const rawPrice = offer.price ?? offer.lowPrice ?? offer.highPrice;
-              if (rawPrice !== undefined && rawPrice !== null) {
-                price = typeof rawPrice === 'number' ? rawPrice : parsePrice(String(rawPrice));
-              }
-              if (offer.priceCurrency) {
-                currency = String(offer.priceCurrency);
-              }
-              if (offer.availability) {
-                const avail = String(offer.availability).toLowerCase();
-                if (avail.includes('outofstock')) {
-                  isOutOfStock = true;
-                }
-              }
-            }
-          }
+          const { price, currency, isOutOfStock } = selectBestOffer(item.offers);
 
           let imageUrl: string | undefined;
           if (item.image) {
