@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Migration: 011_production_ready_hardening.sql
 -- Purpose:
---   1. Products table: Add granular scrape timestamps, price_source, version, and lock down RLS
+--   1. Products & Price History: Unbind and recreate RLS policies, alter user_id to text
 --   2. App settings: User-scoped isolation, eliminate global shared state, lock down RLS
 --   3. Push subscriptions: Add user_id, unique endpoint per user, lock down RLS
 --   4. Search history: Restrict read/delete to owner and service_role
@@ -10,14 +10,38 @@
 --   7. Scrape runs & items: Observability and run telemetry tracking tables
 -- ============================================================================
 
--- Ensure pgcrypto or uuid-ossp extension exists for gen_random_uuid()
+-- Ensure pgcrypto extension exists for gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ----------------------------------------------------------------------------
--- 1. PRODUCTS TABLE HARDENING & RLS LOCKDOWN
+-- 1. DROP DEPENDENT POLICIES BEFORE ALTERING COLUMN TYPES
 -- ----------------------------------------------------------------------------
 
--- Ensure user_id column in products is flexible text (allowing custom auth and UUID strings)
+-- Drop policies on price_history that depend on products.user_id
+DROP POLICY IF EXISTS "Users can view history for own products" ON public.price_history;
+DROP POLICY IF EXISTS "Service role and users can insert price history" ON public.price_history;
+DROP POLICY IF EXISTS "Public can view price history" ON public.price_history;
+DROP POLICY IF EXISTS "Public can insert price history" ON public.price_history;
+
+-- Drop policies on products
+DROP POLICY IF EXISTS "Public can read products" ON public.products;
+DROP POLICY IF EXISTS "Public can view products" ON public.products;
+DROP POLICY IF EXISTS "Public can insert products" ON public.products;
+DROP POLICY IF EXISTS "Allow public delete products" ON public.products;
+DROP POLICY IF EXISTS "Allow public update products" ON public.products;
+DROP POLICY IF EXISTS "Owner or service role can update products" ON public.products;
+DROP POLICY IF EXISTS "Owner or service role can delete products" ON public.products;
+DROP POLICY IF EXISTS "Users can read own products" ON public.products;
+DROP POLICY IF EXISTS "Users can insert own products" ON public.products;
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.products;
+DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON public.products;
+DROP POLICY IF EXISTS "Enable update for users based on email" ON public.products;
+
+-- ----------------------------------------------------------------------------
+-- 2. PRODUCTS TABLE HARDENING
+-- ----------------------------------------------------------------------------
+
+-- Safely convert user_id to flexible text (now unblocked after dropping dependent policies)
 ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_user_id_fkey;
 ALTER TABLE public.products ALTER COLUMN user_id DROP NOT NULL;
 ALTER TABLE public.products ALTER COLUMN user_id TYPE text USING user_id::text;
@@ -35,18 +59,7 @@ UPDATE public.products
 SET last_successful_scrape_at = last_checked_at
 WHERE last_successful_scrape_at IS NULL AND last_checked_at IS NOT NULL;
 
--- Drop overly permissive public read/insert policies
-DROP POLICY IF EXISTS "Public can read products" ON public.products;
-DROP POLICY IF EXISTS "Public can view products" ON public.products;
-DROP POLICY IF EXISTS "Public can insert products" ON public.products;
-DROP POLICY IF EXISTS "Allow public delete products" ON public.products;
-DROP POLICY IF EXISTS "Allow public update products" ON public.products;
-DROP POLICY IF EXISTS "Owner or service role can update products" ON public.products;
-DROP POLICY IF EXISTS "Owner or service role can delete products" ON public.products;
-DROP POLICY IF EXISTS "Users can read own products" ON public.products;
-DROP POLICY IF EXISTS "Users can insert own products" ON public.products;
-
--- Scoped RLS: Users can only view their own products or if service_role
+-- Scoped RLS on products: Users can only view their own products or if service_role
 CREATE POLICY "Users can read own products"
   ON public.products FOR SELECT
   USING (
@@ -85,7 +98,39 @@ CREATE POLICY "Owner or service role can delete products"
   );
 
 -- ----------------------------------------------------------------------------
--- 2. APP SETTINGS USER-SCOPED ISOLATION & RLS LOCKDOWN
+-- 3. PRICE HISTORY HARDENED POLICIES
+-- ----------------------------------------------------------------------------
+
+CREATE POLICY "Users can view history for own products"
+  ON public.price_history FOR SELECT
+  USING (
+    coalesce(auth.jwt() ->> 'role', '') = 'service_role'
+    OR EXISTS (
+      SELECT 1 FROM public.products
+      WHERE products.id = price_history.product_id
+      AND (
+        (auth.uid() IS NOT NULL AND products.user_id::text = auth.uid()::text)
+        OR products.user_id IS NULL
+      )
+    )
+  );
+
+CREATE POLICY "Service role and users can insert price history"
+  ON public.price_history FOR INSERT
+  WITH CHECK (
+    coalesce(auth.jwt() ->> 'role', '') = 'service_role'
+    OR EXISTS (
+      SELECT 1 FROM public.products
+      WHERE products.id = price_history.product_id
+      AND (
+        (auth.uid() IS NOT NULL AND products.user_id::text = auth.uid()::text)
+        OR products.user_id IS NULL
+      )
+    )
+  );
+
+-- ----------------------------------------------------------------------------
+-- 4. APP SETTINGS USER-SCOPED ISOLATION & RLS LOCKDOWN
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.app_settings (
@@ -97,12 +142,10 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
 ALTER TABLE public.app_settings
   ADD COLUMN IF NOT EXISTS user_id text;
 
--- Create unique index on user_id so each user has their own isolated settings row
 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_settings_user_id
   ON public.app_settings(user_id)
   WHERE user_id IS NOT NULL;
 
--- Drop permissive public policies
 DROP POLICY IF EXISTS "Public can view app settings" ON public.app_settings;
 DROP POLICY IF EXISTS "Public can update app settings" ON public.app_settings;
 DROP POLICY IF EXISTS "Service role full access on app_settings" ON public.app_settings;
@@ -133,7 +176,7 @@ CREATE POLICY "Users can modify own settings"
   );
 
 -- ----------------------------------------------------------------------------
--- 3. PUSH SUBSCRIPTIONS USER OWNERSHIP & RLS LOCKDOWN
+-- 5. PUSH SUBSCRIPTIONS USER OWNERSHIP & RLS LOCKDOWN
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.push_subscriptions (
@@ -170,7 +213,7 @@ CREATE POLICY "Users can manage own push subscriptions"
   );
 
 -- ----------------------------------------------------------------------------
--- 4. SEARCH HISTORY RLS LOCKDOWN
+-- 6. SEARCH HISTORY RLS LOCKDOWN
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.search_history (
@@ -229,7 +272,7 @@ CREATE POLICY "Users can delete own search_history"
   );
 
 -- ----------------------------------------------------------------------------
--- 5. RATE LIMITS RLS LOCKDOWN & ATOMIC INCREMENT RPC
+-- 7. RATE LIMITS RLS LOCKDOWN & ATOMIC INCREMENT RPC
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.rate_limits (
@@ -254,7 +297,6 @@ CREATE POLICY "Service role full access on rate_limits"
   USING (coalesce(auth.jwt() ->> 'role', '') = 'service_role')
   WITH CHECK (coalesce(auth.jwt() ->> 'role', '') = 'service_role');
 
--- Atomic sliding-window rate limit increment function
 CREATE OR REPLACE FUNCTION public.increment_rate_limit(
   p_key text,
   p_limit integer,
@@ -271,7 +313,6 @@ DECLARE
   v_points integer;
   v_existing_expire timestamptz;
 BEGIN
-  -- Atomic upsert: increment points or reset expired window
   INSERT INTO public.rate_limits (key, points, expire_at, last_attempt_at)
   VALUES (p_key, 1, v_expire_at, v_now)
   ON CONFLICT (key) DO UPDATE
@@ -297,7 +338,7 @@ END;
 $$;
 
 -- ----------------------------------------------------------------------------
--- 6. ALERT EVENTS TABLE (IDEMPOTENT NOTIFICATION DISPATCH)
+-- 8. ALERT EVENTS TABLE (IDEMPOTENT NOTIFICATION DISPATCH)
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.alert_events (
@@ -325,7 +366,7 @@ CREATE POLICY "Service role full access on alert_events"
   WITH CHECK (coalesce(auth.jwt() ->> 'role', '') = 'service_role');
 
 -- ----------------------------------------------------------------------------
--- 7. SCRAPE RUNS & ITEMS (OBSERVABILITY & TELEMETRY)
+-- 9. SCRAPE RUNS & ITEMS (OBSERVABILITY & TELEMETRY)
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.scrape_runs (
