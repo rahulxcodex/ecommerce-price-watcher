@@ -45,6 +45,30 @@ function extractProductFromPage() {
     }
   } catch {}
 
+  // 1b. Check Ajio preloaded state or Myntra window objects
+  try {
+    if (typeof window !== 'undefined') {
+      if (window.__myx && window.__myx.pdpData) {
+        const pdp = window.__myx.pdpData;
+        const p = pdp.price?.discounted || pdp.price?.mrp;
+        if (p && parseInt(p, 10) > 0) price = parseInt(p, 10);
+        if (pdp.name) title = `${pdp.brand?.name ? pdp.brand.name + ' ' : ''}${pdp.name}`;
+        if (pdp.media?.albums?.[0]?.images?.[0]?.src) {
+          imageUrl = pdp.media.albums[0].images[0].src;
+        }
+      }
+      if (window.__PRELOADED_STATE__ && window.__PRELOADED_STATE__.product) {
+        const pdp = window.__PRELOADED_STATE__.product.productDetails;
+        if (pdp) {
+          const p = pdp.price?.value ?? pdp.price?.discountedPrice ?? pdp.price?.mrp;
+          if (p && parseInt(p, 10) > 0) price = parseInt(p, 10);
+          if (pdp.name) title = `${pdp.brandName ? pdp.brandName + ' ' : ''}${pdp.name}`;
+          if (pdp.images?.[0]?.url) imageUrl = pdp.images[0].url;
+        }
+      }
+    }
+  } catch {}
+
   // 2. Store specific DOM selectors
   if (!price) {
     const selectors = [
@@ -61,9 +85,15 @@ function extractProductFromPage() {
       // Myntra
       'span.pdp-price strong',
       'span.pdp-price',
+      'div.pdp-price-info span.pdp-price',
+      '[data-testid="pdp-price"]',
       '.pdp-offers-price',
+      'span.pdp-mrp',
       // Ajio
       'span.prod-sp',
+      'div.prod-price-section span.prod-sp',
+      'span.price-value',
+      'div.discounted-price',
       'span.fnl-price',
       '[data-testid="pdp-sp"]',
       // Meesho

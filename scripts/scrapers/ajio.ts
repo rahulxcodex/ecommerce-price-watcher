@@ -150,8 +150,13 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
 
   // Strategy 3: Playwright Headless Browser Fallback (only if browser binaries are installed)
   if (!isPlaywrightAvailable()) {
+    const slugMatch = url.match(/\/([^/]+)\/p\//);
+    const fallbackTitle = slugMatch
+      ? decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim()
+      : 'Ajio Product';
     return {
       success: false,
+      title: fallbackTitle,
       error:
         'Could not extract Ajio product price automatically due to store anti-bot protections. Please enter the current price manually or use the PriceWatcher Companion Extension.',
     };

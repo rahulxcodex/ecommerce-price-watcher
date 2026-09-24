@@ -157,8 +157,18 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
 
   // Strategy 3: Playwright Headless Browser Fallback (only if browser binaries are installed)
   if (!isPlaywrightAvailable()) {
+    let fallbackTitle = 'Myntra Product';
+    try {
+      const segments = new URL(url).pathname.split('/').filter(Boolean);
+      const buyIdx = segments.indexOf('buy');
+      const slug = buyIdx >= 2 ? segments[buyIdx - 2] : segments[segments.length - 2];
+      if (slug) {
+        fallbackTitle = decodeURIComponent(slug).replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+      }
+    } catch {}
     return {
       success: false,
+      title: fallbackTitle,
       error:
         'Could not extract Myntra product price automatically due to store anti-bot protections. Please enter the current price manually or use the PriceWatcher Companion Extension.',
     };

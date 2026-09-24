@@ -2,9 +2,10 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PlusCircle, Loader2, ArrowLeft, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { PlusCircle, Loader2, ArrowLeft, CheckCircle, AlertCircle, Info, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { PlatformBadge } from '@/components/platform-badge';
+import { deriveTitleFromUrl } from '@/lib/security';
 import { Platform } from '@/types';
 
 function AddProductForm() {
@@ -14,6 +15,7 @@ function AddProductForm() {
   const [url, setUrl] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [currentPrice, setCurrentPrice] = useState('');
+  const [derivedTitle, setDerivedTitle] = useState('');
   const [showManualPrice, setShowManualPrice] = useState(false);
   const [selectedSize, setSelectedSize] = useState('');
   const [notes, setNotes] = useState('');
@@ -32,20 +34,27 @@ function AddProductForm() {
 
   const detectPlatform = (val: string) => {
     const trimmed = val.toLowerCase();
+    let plat: Platform | null = null;
     if (trimmed.includes('amazon.in') || trimmed.includes('amzn.to') || trimmed.includes('amazon.com')) {
-      setDetectedPlatform('amazon');
+      plat = 'amazon';
     } else if (trimmed.includes('flipkart.com') || trimmed.includes('fkrt.it')) {
-      setDetectedPlatform('flipkart');
+      plat = 'flipkart';
     } else if (trimmed.includes('meesho.com')) {
-      setDetectedPlatform('meesho');
+      plat = 'meesho';
     } else if (trimmed.includes('myntra.com')) {
-      setDetectedPlatform('myntra');
+      plat = 'myntra';
     } else if (trimmed.includes('ajio.com')) {
-      setDetectedPlatform('ajio');
+      plat = 'ajio';
     } else if (trimmed.includes('westside.com')) {
-      setDetectedPlatform('westside');
-    } else {
-      setDetectedPlatform(null);
+      plat = 'westside';
+    }
+
+    setDetectedPlatform(plat);
+
+    if (plat === 'ajio' || plat === 'myntra' || plat === 'westside') {
+      setShowManualPrice(true);
+      const title = deriveTitleFromUrl(val, plat);
+      if (title) setDerivedTitle(title);
     }
   };
 
@@ -60,6 +69,21 @@ function AddProductForm() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    // Instant client-side validation for anti-bot protected stores
+    if (
+      (detectedPlatform === 'ajio' || detectedPlatform === 'myntra' || detectedPlatform === 'westside') &&
+      (!currentPrice || Number(currentPrice) <= 0)
+    ) {
+      setShowManualPrice(true);
+      setError(
+        `${detectedPlatform.toUpperCase()} blocks automated cloud requests via anti-bot protections. Please enter the current price (₹) you see on the store page to start tracking.`
+      );
+      const inputEl = document.getElementById('current-price-input');
+      if (inputEl) inputEl.focus();
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -70,6 +94,7 @@ function AddProductForm() {
           url: url.trim(),
           targetPrice: targetPrice ? Number(targetPrice) : null,
           clientPrice: currentPrice ? Number(currentPrice) : null,
+          clientTitle: derivedTitle || undefined,
           selectedSize: selectedSize.trim() || null,
           notes: notes.trim() || null,
         }),
@@ -173,15 +198,27 @@ function AddProductForm() {
 
           {/* Manual Current Price (Bypasses Store Anti-Bot) */}
           {(showManualPrice || currentPrice) && (
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-2.5">
               <div className="flex items-center justify-between">
                 <label htmlFor="current-price-input" className="block text-xs font-semibold text-amber-300">
                   Current Store Price in ₹ (Anti-Bot Bypass)
                 </label>
-                <span className="text-[10px] text-amber-400/80 font-medium">Bypasses Cloud Verification</span>
+                <Link
+                  href="/extension"
+                  className="text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 px-2.5 py-1 rounded-lg border border-amber-500/30 font-semibold transition-all inline-flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>1-Click Extension</span>
+                </Link>
               </div>
+              {derivedTitle && (
+                <div className="text-[11px] text-emerald-400 font-medium bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
+                  <CheckCircle className="w-3 h-3 flex-shrink-0" />
+                  <span>Identified item: <strong className="text-slate-100">{derivedTitle}</strong></span>
+                </div>
+              )}
               <p className="text-[11px] text-slate-400">
-                Enter the live price you see on the store page so PriceWatcher can start tracking history and price drop alerts immediately.
+                {detectedPlatform ? detectedPlatform.toUpperCase() : 'This store'} protects against automated cloud scrapers. Enter the live price you see on the product page so PriceWatcher can start tracking history and price drop alerts immediately.
               </p>
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">

@@ -199,3 +199,47 @@ export function safeCompare(a: string, b: string): boolean {
   }
   return result === 0;
 }
+
+/**
+ * Extracts a clean, human-readable product title from a store URL slug.
+ */
+export function deriveTitleFromUrl(rawUrl: string, platform?: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  try {
+    const parsed = new URL(rawUrl.trim());
+    const path = parsed.pathname;
+    let slug = '';
+
+    if (platform === 'ajio' || path.includes('/p/')) {
+      const match = path.match(/\/([^/]+)\/p\//);
+      if (match) slug = match[1];
+    } else if (platform === 'myntra' || path.includes('/buy')) {
+      const segments = path.split('/').filter(Boolean);
+      const buyIdx = segments.indexOf('buy');
+      if (buyIdx >= 2) {
+        slug = segments[buyIdx - 2];
+      } else if (segments.length >= 2) {
+        slug = segments[segments.length - 2];
+      }
+    } else if (platform === 'westside' || path.includes('/products/')) {
+      const match = path.match(/\/products\/([^/?#]+)/);
+      if (match) slug = match[1];
+    } else if (platform === 'flipkart') {
+      const segments = path.split('/').filter(Boolean);
+      if (segments.length > 0 && segments[0] !== 'p') {
+        slug = segments[0];
+      }
+    } else if (platform === 'amazon') {
+      const match = path.match(/\/([^/]+)\/dp\//);
+      if (match) slug = match[1];
+    }
+
+    if (slug) {
+      return decodeURIComponent(slug)
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+        .trim();
+    }
+  } catch {}
+  return '';
+}

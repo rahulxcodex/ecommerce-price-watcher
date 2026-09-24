@@ -76,10 +76,41 @@ export default function SettingsPage() {
     }
     loadSettings();
 
-    // Check existing push permission status
+    // Check existing push permission status and auto-sync subscription
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
-        setPushStatus('enabled');
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          navigator.serviceWorker.ready.then(async (reg) => {
+            try {
+              let sub = await reg.pushManager.getSubscription();
+              if (!sub) {
+                const vapidKey =
+                  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+                  'BJeWpGbW6kkqoVzplUPqE-4NClupkqYD0xM8v7V-pNo84btMzAllrq1r7uIttyv7p1O6ghne_eSCSHvMUu7Qsx8';
+                sub = await reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: urlBase64ToUint8Array(vapidKey),
+                });
+              }
+              if (sub) {
+                await fetch('/api/push/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ subscription: sub }),
+                }).catch(() => {});
+                setPushStatus('enabled');
+              } else {
+                setPushStatus('default');
+              }
+            } catch {
+              setPushStatus('default');
+            }
+          }).catch(() => {
+            setPushStatus('default');
+          });
+        } else {
+          setPushStatus('enabled');
+        }
       } else if (Notification.permission === 'denied') {
         setPushStatus('blocked');
       } else {
@@ -197,22 +228,56 @@ export default function SettingsPage() {
     setIsTestingPush(true);
     setStatusMessage(null);
     try {
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.ready;
-        if (reg && reg.showNotification) {
-          await reg.showNotification('📉 PriceWatcher Alert Test', {
-            body: 'Instant push notifications are active on this device!',
-            icon: '/icon-192.png',
-            badge: '/badge-72.png',
-          });
+      // 1. Ensure browser subscription exists and is synced to the server first
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            const vapidKey =
+              process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+              'BJeWpGbW6kkqoVzplUPqE-4NClupkqYD0xM8v7V-pNo84btMzAllrq1r7uIttyv7p1O6ghne_eSCSHvMUu7Qsx8';
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(vapidKey),
+            });
+          }
+          if (sub) {
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription: sub }),
+            });
+            setPushStatus('enabled');
+          }
+          if (reg && reg.showNotification) {
+            await reg.showNotification('🔔 PriceWatcher Notification Verified', {
+              body: 'Instant push notifications are active on this device!',
+              icon: '/icon-192.png',
+              badge: '/badge-72.png',
+            });
+          }
+        } catch (syncErr) {
+          console.warn('Push sync before test notice:', syncErr);
         }
       }
 
-      const res = await fetch('/api/push/test', { method: 'POST' });
-      const data = await res.json();
+      // 2. Trigger server test push
+      let res = await fetch('/api/push/test', { method: 'POST' });
+      let data = await res.json();
+
+      // If server had 0 subscriptions, attempt re-register and retry once
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Server test push failed');
+        if (data.error && data.error.includes('No active push subscriptions found')) {
+          await handleEnableWebPush();
+          res = await fetch('/api/push/test', { method: 'POST' });
+          data = await res.json();
+        }
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Server test push failed');
+        }
       }
+
       setStatusMessage({ type: 'success', text: data.message || 'Test push notification delivered!' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -315,10 +380,11 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={handleEnableWebPush}
-              disabled={isPushLoading || pushStatus === 'enabled'}
+              disabled={isPushLoading}
+              title={pushStatus === 'enabled' ? 'Click to re-sync push registration with server' : 'Enable Web Push'}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap ${
                 pushStatus === 'enabled'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30'
                   : 'bg-emerald-500 hover:bg-emerald-600 text-slate-950'
               }`}
             >
@@ -329,7 +395,7 @@ export default function SettingsPage() {
               ) : (
                 <BellRing className="w-3.5 h-3.5" />
               )}
-              <span>{pushStatus === 'enabled' ? 'Subscribed' : 'Enable on this Device'}</span>
+              <span>{isPushLoading ? 'Syncing...' : pushStatus === 'enabled' ? '✓ Subscribed (Re-sync)' : 'Enable on this Device'}</span>
             </button>
           </div>
         </div>

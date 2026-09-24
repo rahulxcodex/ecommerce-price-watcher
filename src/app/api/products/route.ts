@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
-import { validateAndSanitizeUrl, validateScrapedPrice } from '@/lib/security';
+import { validateAndSanitizeUrl, validateScrapedPrice, deriveTitleFromUrl } from '@/lib/security';
 import { scrapeAmazon } from '@scripts/scrapers/amazon';
 import { scrapeFlipkart } from '@scripts/scrapers/flipkart';
 import { scrapeMeesho } from '@scripts/scrapers/meesho';
@@ -138,12 +138,14 @@ export async function POST(req: NextRequest) {
 
     if (scrapeRes && scrapeRes.success && scrapeRes.price) {
       price = scrapeRes.price;
-      title = scrapeRes.title || `${platform.toUpperCase()} Product`;
+      title = (scrapeRes.title && !scrapeRes.title.endsWith('Product'))
+        ? scrapeRes.title
+        : deriveTitleFromUrl(cleanUrl, platform) || scrapeRes.title || `${platform.toUpperCase()} Product`;
       imageUrl = scrapeRes.imageUrl || null;
       bankOffers = scrapeRes.bankOffers || [];
     } else if (clientPrice && Number(clientPrice) > 0) {
       price = Number(clientPrice);
-      title = clientTitle || `${platform.toUpperCase()} Product`;
+      title = clientTitle || deriveTitleFromUrl(cleanUrl, platform) || `${platform.toUpperCase()} Product`;
       imageUrl = clientImageUrl || null;
       bankOffers = [];
     } else {

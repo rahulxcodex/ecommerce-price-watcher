@@ -21,20 +21,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid subscription object is required.' }, { status: 400 });
     }
 
-    const { data, error } = await db
+    const upsertPayload: Record<string, unknown> = {
+      endpoint: subscription.endpoint,
+      keys: subscription.keys,
+    };
+
+    let { data, error } = await db
       .from('push_subscriptions')
-      .upsert(
-        {
-          endpoint: subscription.endpoint,
-          keys: subscription.keys,
-          recipient: recipient || 'default',
-        },
-        { onConflict: 'endpoint' }
-      )
+      .upsert(upsertPayload, { onConflict: 'endpoint' })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
+      console.error('Push subscription save error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
