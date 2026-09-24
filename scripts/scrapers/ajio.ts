@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { parsePrice } from './utils';
+import { parsePrice, isPlaywrightAvailable } from './utils';
 import { ScrapeResult } from '../../src/types';
 import {
   extractJsonLdProduct,
@@ -148,7 +148,15 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
     console.warn('Ajio HTTP fast-path failed, trying Playwright fallback:', err);
   }
 
-  // Strategy 3: Playwright Headless Browser Fallback
+  // Strategy 3: Playwright Headless Browser Fallback (only if browser binaries are installed)
+  if (!isPlaywrightAvailable()) {
+    return {
+      success: false,
+      error:
+        'Could not extract Ajio product price automatically due to store anti-bot protections. Please enter the current price manually or use the PriceWatcher Companion Extension.',
+    };
+  }
+
   let browser;
   try {
     const { chromium } = await import('playwright');

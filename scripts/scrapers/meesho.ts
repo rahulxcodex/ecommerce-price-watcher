@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { getDefaultHeaders, parsePrice } from './utils';
+import { getDefaultHeaders, parsePrice, isPlaywrightAvailable } from './utils';
 import { ScrapeResult } from '../../src/types';
 import { extractJsonLdProduct, extractMetaTags } from './resilient-extractor';
 
@@ -105,7 +105,15 @@ export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
     console.warn('Meesho HTTP fast-path failed, falling back to Playwright:', err);
   }
 
-  // Strategy 2: Playwright Headless Fallback
+  // Strategy 2: Playwright Headless Fallback (only if browser binaries are installed)
+  if (!isPlaywrightAvailable()) {
+    return {
+      success: false,
+      error:
+        'Could not extract Meesho product price via HTTP. Note: Headless browser rendering is only available in background check jobs (GitHub Actions), not in serverless web runtimes.',
+    };
+  }
+
   let browser;
   try {
     const { chromium } = await import('playwright');

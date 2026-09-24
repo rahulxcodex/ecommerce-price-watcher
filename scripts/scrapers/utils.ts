@@ -55,3 +55,30 @@ export function parsePrice(raw: string): number | null {
 export async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export function isPlaywrightAvailable(): boolean {
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION) {
+    return false;
+  }
+  try {
+    const { chromium } = require('playwright');
+    const execPath = chromium.executablePath();
+    const fs = require('fs');
+    return Boolean(execPath && fs.existsSync(execPath));
+  } catch {
+    return false;
+  }
+}
+
+export function getMobileHeaders(): Record<string, string> {
+  return {
+    'User-Agent':
+      'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9',
+    'Sec-CH-UA-Mobile': '?1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+  };
+}

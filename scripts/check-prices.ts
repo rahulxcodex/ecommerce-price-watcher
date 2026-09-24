@@ -218,22 +218,46 @@ async function main() {
       }).catch((e) => console.warn('Web Push failed:', e));
     }
 
-    // Update product in database
-    await supabase
+    // Update product in database (resilient to schema columns)
+    const updatePayload: Record<string, unknown> = {
+      current_price: newPrice,
+      lowest_price: newLowest,
+      highest_price: newHighest,
+      check_status: 'ok',
+      error_message: null,
+      last_checked_at: new Date().toISOString(),
+      last_price_drop_at: isPriceDrop ? new Date().toISOString() : product.last_price_drop_at,
+      last_alerted_price: newLastAlerted,
+      image_url: scrapeRes.imageUrl || product.image_url,
+      bank_offers: scrapeRes.bankOffers || product.bank_offers || [],
+    };
+
+    const { error: updateError } = await supabase
       .from('products')
-      .update({
-        current_price: newPrice,
-        lowest_price: newLowest,
-        highest_price: newHighest,
-        check_status: 'ok',
-        error_message: null,
-        last_checked_at: new Date().toISOString(),
-        last_price_drop_at: isPriceDrop ? new Date().toISOString() : product.last_price_drop_at,
-        last_alerted_price: newLastAlerted,
-        image_url: scrapeRes.imageUrl || product.image_url,
-        bank_offers: scrapeRes.bankOffers || product.bank_offers,
-      })
+      .update(updatePayload)
       .eq('id', product.id);
+
+    if (
+      updateError &&
+      (updateError.message.includes('schema cache') ||
+        updateError.message.includes('bank_offers') ||
+        updateError.message.includes('last_alerted_price') ||
+        updateError.code === 'PGRST204')
+    ) {
+      await supabase
+        .from('products')
+        .update({
+          current_price: newPrice,
+          lowest_price: newLowest,
+          highest_price: newHighest,
+          check_status: 'ok',
+          error_message: null,
+          last_checked_at: new Date().toISOString(),
+          last_price_drop_at: isPriceDrop ? new Date().toISOString() : product.last_price_drop_at,
+          image_url: scrapeRes.imageUrl || product.image_url,
+        })
+        .eq('id', product.id);
+    }
 
     // Record to price_history table
     await supabase.from('price_history').insert({

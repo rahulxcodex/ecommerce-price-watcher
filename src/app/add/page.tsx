@@ -13,6 +13,8 @@ function AddProductForm() {
 
   const [url, setUrl] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
+  const [currentPrice, setCurrentPrice] = useState('');
+  const [showManualPrice, setShowManualPrice] = useState(false);
   const [selectedSize, setSelectedSize] = useState('');
   const [notes, setNotes] = useState('');
   const [detectedPlatform, setDetectedPlatform] = useState<Platform | null>(null);
@@ -67,6 +69,7 @@ function AddProductForm() {
         body: JSON.stringify({
           url: url.trim(),
           targetPrice: targetPrice ? Number(targetPrice) : null,
+          clientPrice: currentPrice ? Number(currentPrice) : null,
           selectedSize: selectedSize.trim() || null,
           notes: notes.trim() || null,
         }),
@@ -75,6 +78,14 @@ function AddProductForm() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (
+          data.error &&
+          (data.error.includes('extract price') ||
+            data.error.includes('anti-bot') ||
+            data.error.includes('sanity check'))
+        ) {
+          setShowManualPrice(true);
+        }
         throw new Error(data.error || 'Failed to add product.');
       }
 
@@ -114,9 +125,12 @@ function AddProductForm() {
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-400 text-xs">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <div>
+            <div className="space-y-1">
               <p className="font-semibold">Unable to Track Link</p>
-              <p className="mt-0.5">{error}</p>
+              <p>{error}</p>
+              <p className="text-[11px] text-slate-400 pt-1">
+                Tip: If the store blocks cloud servers, use our <Link href="/extension" className="text-emerald-400 underline">Browser Extension</Link> for 1-click tracking, or enter the current price below.
+              </p>
             </div>
           </div>
         )}
@@ -156,6 +170,49 @@ function AddProductForm() {
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
             />
           </div>
+
+          {/* Manual Current Price (Bypasses Store Anti-Bot) */}
+          {(showManualPrice || currentPrice) && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="current-price-input" className="block text-xs font-semibold text-amber-300">
+                  Current Store Price in ₹ (Anti-Bot Bypass)
+                </label>
+                <span className="text-[10px] text-amber-400/80 font-medium">Bypasses Cloud Verification</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Enter the live price you see on the store page so PriceWatcher can start tracking history and price drop alerts immediately.
+              </p>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">
+                  ₹
+                </span>
+                <input
+                  id="current-price-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={currentPrice}
+                  onChange={(e) => setCurrentPrice(e.target.value)}
+                  placeholder="e.g. 1499"
+                  disabled={isLoading}
+                  className="w-full bg-slate-950 border border-amber-500/40 rounded-xl pl-8 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-400 transition-colors"
+                />
+              </div>
+            </div>
+          )}
+
+          {!showManualPrice && !currentPrice && (
+            <div className="flex justify-end -mt-3">
+              <button
+                type="button"
+                onClick={() => setShowManualPrice(true)}
+                className="text-[11px] text-slate-500 hover:text-emerald-400 transition-colors"
+              >
+                + Enter current price manually (bypasses store anti-bot)
+              </button>
+            </div>
+          )}
 
           {/* Optional Target Price */}
           <div>

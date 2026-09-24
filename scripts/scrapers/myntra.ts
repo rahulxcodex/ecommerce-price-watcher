@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { parsePrice } from './utils';
+import { parsePrice, isPlaywrightAvailable, getMobileHeaders } from './utils';
 import { ScrapeResult } from '../../src/types';
 import {
   extractJsonLdProduct,
@@ -8,135 +8,162 @@ import {
   resilientFetch,
 } from './resilient-extractor';
 
-export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
-  // Strategy 1: Fast HTTP with multi-tier resilient SSR extraction
-  try {
-    const res = await resilientFetch(url, 12000);
+function extractFromMyntraHtml(html: string): ScrapeResult | null {
+  const $ = cheerio.load(html);
 
-    if (res.ok) {
-      const html = await res.text();
-      const $ = cheerio.load(html);
+  // Check Tier 1: Schema.org / JSON-LD (Google Shopping standard)
+  const jsonLd = extractJsonLdProduct($);
+  if (jsonLd && jsonLd.price && jsonLd.price > 0) {
+    return {
+      success: true,
+      title: jsonLd.title || 'Myntra Product',
+      price: jsonLd.price,
+      imageUrl: jsonLd.imageUrl,
+      currency: jsonLd.currency || 'INR',
+      isOutOfStock: jsonLd.isOutOfStock,
+    };
+  }
 
-      // Check Tier 1: Schema.org / JSON-LD (Google Shopping standard)
-      const jsonLd = extractJsonLdProduct($);
-      if (jsonLd && jsonLd.price && jsonLd.price > 0) {
+  // Check Tier 2: Preloaded hydration state script (window.__myx.pdpData)
+  // Robust substring matching rather than greedy regex
+  const myxIdx = html.indexOf('window.__myx');
+  if (myxIdx !== -1) {
+    const pdpIdx = html.indexOf('"pdpData":', myxIdx);
+    if (pdpIdx !== -1) {
+      const slice = html.slice(pdpIdx, pdpIdx + 25000);
+      const discMatch = slice.match(/"discounted":\s*(\d+)/i) || slice.match(/"discountedPrice":\s*(\d+)/i);
+      const mrpMatch = slice.match(/"mrp":\s*(\d+)/i);
+      const priceVal = discMatch ? discMatch[1] : mrpMatch ? mrpMatch[1] : null;
+
+      const nameMatch = slice.match(/"name":\s*"([^"]+)"/i);
+      const brandMatch = slice.match(/"brand":\s*\{[^}]*"name":\s*"([^"]+)"/i);
+      const title = nameMatch
+        ? `${brandMatch ? brandMatch[1] + ' ' : ''}${nameMatch[1]}`
+        : 'Myntra Product';
+
+      const rawImgMatch = slice.match(/"src":\s*"([^"]+myntassets[^"]+)"/i);
+      const imageUrl = rawImgMatch
+        ? rawImgMatch[1].replace(/\\u002F/g, '/').replace(/h_\(\$height\)[^/]+\//, '')
+        : undefined;
+
+      if (priceVal && Number(priceVal) > 0) {
         return {
           success: true,
-          title: jsonLd.title || 'Myntra Product',
-          price: jsonLd.price,
-          imageUrl: jsonLd.imageUrl,
-          currency: jsonLd.currency || 'INR',
-          isOutOfStock: jsonLd.isOutOfStock,
-        };
-      }
-
-      // Check Tier 2: Preloaded hydration state script (window.__myx.pdpData)
-      const myxMatch = html.match(/window\.__myx\s*=\s*(\{[\s\S]+?\})\s*;?\s*<\/script>/);
-      if (myxMatch && myxMatch[1]) {
-        try {
-          const myxData = JSON.parse(myxMatch[1]);
-          const pdpData = myxData?.pdpData;
-          if (pdpData) {
-            const price = pdpData.price?.discounted || pdpData.price?.mrp;
-            const title = pdpData.name
-              ? `${pdpData.brand?.name ? pdpData.brand.name + ' ' : ''}${pdpData.name}`
-              : 'Myntra Product';
-            const imageUrl = pdpData.media?.albums?.[0]?.images?.[0]?.src;
-            const isOutOfStock =
-              pdpData.sizes && Array.isArray(pdpData.sizes)
-                ? pdpData.sizes.every((s: { available?: boolean }) => s.available === false)
-                : false;
-
-            const availableSizes: string[] = (pdpData.sizes || [])
-              .filter((s: { available?: boolean }) => s.available !== false)
-              .map((s: { label?: string; size?: string }) => s.label || s.size || '')
-              .filter(Boolean);
-
-            if (price && Number(price) > 0) {
-              return {
-                success: true,
-                title,
-                price: Number(price),
-                imageUrl,
-                currency: 'INR',
-                isOutOfStock,
-                availableSizes: availableSizes.length > 0 ? availableSizes : undefined,
-              };
-            }
-          }
-        } catch {
-          // Fall through to regex extraction
-        }
-      }
-
-      // Check Tier 2b: Regex extraction on raw script payload
-      const discPriceMatch = html.match(/"discounted":\s*(\d+)/i) || html.match(/"discountedPrice":\s*(\d+)/i);
-      const mrpMatch = html.match(/"mrp":\s*(\d+)/i);
-      const rawPrice = discPriceMatch ? discPriceMatch[1] : mrpMatch ? mrpMatch[1] : null;
-
-      const titleMatch = html.match(/"name":\s*"([^"]+)"/i);
-      const imageMatch = html.match(/"src":\s*"([^"]+myntassets\.com[^"]+)"/i);
-
-      if (rawPrice && parseInt(rawPrice, 10) > 0) {
-        return {
-          success: true,
-          title: titleMatch ? titleMatch[1] : jsonLd?.title || 'Myntra Product',
-          price: parseInt(rawPrice, 10),
-          imageUrl: imageMatch ? imageMatch[1] : jsonLd?.imageUrl,
-          currency: 'INR',
-        };
-      }
-
-      // Check Tier 3: OpenGraph & Twitter meta tags
-      const meta = extractMetaTags($);
-      if (meta.price && meta.price > 0) {
-        return {
-          success: true,
-          title: meta.title || 'Myntra Product',
-          price: meta.price,
-          imageUrl: meta.imageUrl,
-          currency: 'INR',
-        };
-      }
-
-      // Check Tier 4: Fallback DOM selectors
-      const priceSelectors = [
-        'span.pdp-price strong',
-        'span.pdp-price',
-        'span.pdp-mrp',
-        'div.pdp-price-info span.pdp-price',
-        '[data-testid="pdp-price"]',
-        '.pdp-offers-price',
-      ];
-      const domPrice = extractSelectorPrice($, priceSelectors);
-
-      const domTitle =
-        $('h1.pdp-title').text().trim() ||
-        $('h1.pdp-name').text().trim() ||
-        $('h1').first().text().trim() ||
-        meta.title ||
-        'Myntra Product';
-
-      const domImage =
-        $('div.image-grid-image').first().css('background-image')?.replace(/url\(["']?/, '').replace(/["']?\)/, '') ||
-        $('img.image-grid-image').first().attr('src') ||
-        meta.imageUrl;
-
-      if (domPrice && domPrice > 0) {
-        return {
-          success: true,
-          title: domTitle,
-          price: domPrice,
-          imageUrl: domImage,
+          title,
+          price: Number(priceVal),
+          imageUrl,
           currency: 'INR',
         };
       }
     }
-  } catch (err: unknown) {
-    console.warn('Myntra HTTP fast-path failed, trying Playwright fallback:', err);
   }
 
-  // Strategy 2: Playwright Headless Browser Fallback
+  // Check Tier 2b: Global regex on entire HTML payload
+  const globalDisc = html.match(/"discounted":\s*(\d+)/i) || html.match(/"discountedPrice":\s*(\d+)/i);
+  const globalMrp = html.match(/"mrp":\s*(\d+)/i);
+  const rawPrice = globalDisc ? globalDisc[1] : globalMrp ? globalMrp[1] : null;
+  const globalTitle = html.match(/"name":\s*"([^"]+)"/i);
+  const globalImg = html.match(/"src":\s*"([^"]+myntassets[^"]+)"/i);
+
+  if (rawPrice && parseInt(rawPrice, 10) > 0) {
+    return {
+      success: true,
+      title: globalTitle ? globalTitle[1] : jsonLd?.title || 'Myntra Product',
+      price: parseInt(rawPrice, 10),
+      imageUrl: globalImg ? globalImg[1].replace(/\\u002F/g, '/').replace(/h_\(\$height\)[^/]+\//, '') : jsonLd?.imageUrl,
+      currency: 'INR',
+    };
+  }
+
+  // Check Tier 3: OpenGraph & Twitter meta tags
+  const meta = extractMetaTags($);
+  if (meta.price && meta.price > 0) {
+    return {
+      success: true,
+      title: meta.title || 'Myntra Product',
+      price: meta.price,
+      imageUrl: meta.imageUrl,
+      currency: 'INR',
+    };
+  }
+
+  // Check Tier 4: Fallback DOM selectors
+  const priceSelectors = [
+    'span.pdp-price strong',
+    'span.pdp-price',
+    'span.pdp-mrp',
+    'div.pdp-price-info span.pdp-price',
+    '[data-testid="pdp-price"]',
+    '.pdp-offers-price',
+  ];
+  const domPrice = extractSelectorPrice($, priceSelectors);
+
+  const domTitle =
+    $('h1.pdp-title').text().trim() ||
+    $('h1.pdp-name').text().trim() ||
+    $('h1').first().text().trim() ||
+    meta.title ||
+    'Myntra Product';
+
+  const domImage =
+    $('div.image-grid-image').first().css('background-image')?.replace(/url\(["']?/, '').replace(/["']?\)/, '') ||
+    $('img.image-grid-image').first().attr('src') ||
+    meta.imageUrl;
+
+  if (domPrice && domPrice > 0) {
+    return {
+      success: true,
+      title: domTitle,
+      price: domPrice,
+      imageUrl: domImage,
+      currency: 'INR',
+    };
+  }
+
+  return null;
+}
+
+export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
+  // Strategy 1: Desktop HTTP fast-path
+  try {
+    const res = await resilientFetch(url, 8000);
+    if (res.ok) {
+      const html = await res.text();
+      const extracted = extractFromMyntraHtml(html);
+      if (extracted && extracted.success) {
+        return extracted;
+      }
+    }
+  } catch (err: unknown) {
+    console.warn('Myntra desktop fetch skipped or failed:', err);
+  }
+
+  // Strategy 2: Mobile HTTP fast-path (bypasses desktop challenge filters & returns SSR payload)
+  try {
+    const mobileRes = await fetch(url, {
+      headers: getMobileHeaders(),
+      redirect: 'follow',
+    });
+    if (mobileRes.ok) {
+      const mobileHtml = await mobileRes.text();
+      const extracted = extractFromMyntraHtml(mobileHtml);
+      if (extracted && extracted.success) {
+        return extracted;
+      }
+    }
+  } catch (err: unknown) {
+    console.warn('Myntra mobile fetch skipped or failed:', err);
+  }
+
+  // Strategy 3: Playwright Headless Browser Fallback (only if browser binaries are installed)
+  if (!isPlaywrightAvailable()) {
+    return {
+      success: false,
+      error:
+        'Could not extract Myntra product price automatically due to store anti-bot protections. Please enter the current price manually or use the PriceWatcher Companion Extension.',
+    };
+  }
+
   let browser;
   try {
     const { chromium } = await import('playwright');
@@ -182,7 +209,7 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
     };
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
-    return { success: false, error: `Myntra Playwright failed: ${errorMsg}` };
+    return { success: false, error: `Myntra extraction failed: ${errorMsg}` };
   } finally {
     if (browser) {
       await browser.close().catch(() => null);

@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { getDefaultHeaders, parsePrice } from './utils';
+import { getDefaultHeaders, parsePrice, isPlaywrightAvailable, getMobileHeaders } from './utils';
 import { ScrapeResult } from '../../src/types';
 import { extractMetaTags } from './resilient-extractor';
 
@@ -101,7 +101,15 @@ export async function scrapeFlipkart(url: string): Promise<ScrapeResult> {
     console.warn('Flipkart HTTP fast-path failed, trying Playwright fallback:', err);
   }
 
-  // Strategy 2: Headless Playwright Browser Fallback
+  // Strategy 2: Headless Playwright Browser Fallback (only if browser binaries are installed)
+  if (!isPlaywrightAvailable()) {
+    return {
+      success: false,
+      error:
+        'Could not extract Flipkart product price via HTTP. Note: Headless browser rendering is only available in background check jobs (GitHub Actions), not in serverless web runtimes.',
+    };
+  }
+
   let browser;
   try {
     const { chromium } = await import('playwright');
