@@ -10,9 +10,17 @@
 --   7. Scrape runs & items: Observability and run telemetry tracking tables
 -- ============================================================================
 
+-- Ensure pgcrypto or uuid-ossp extension exists for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- ----------------------------------------------------------------------------
 -- 1. PRODUCTS TABLE HARDENING & RLS LOCKDOWN
 -- ----------------------------------------------------------------------------
+
+-- Ensure user_id column in products is flexible text (allowing custom auth and UUID strings)
+ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_user_id_fkey;
+ALTER TABLE public.products ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE public.products ALTER COLUMN user_id TYPE text USING user_id::text;
 
 -- Add granular scrape timestamps, price source, and optimistic concurrency version
 ALTER TABLE public.products
@@ -43,7 +51,7 @@ CREATE POLICY "Users can read own products"
   ON public.products FOR SELECT
   USING (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
     OR (user_id IS NULL AND created_by_name IS NOT NULL AND created_by_name = coalesce(auth.jwt() ->> 'name', ''))
   );
 
@@ -52,7 +60,7 @@ CREATE POLICY "Users can insert own products"
   ON public.products FOR INSERT
   WITH CHECK (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
     OR (user_id IS NULL AND auth.uid() IS NOT NULL)
   );
 
@@ -61,11 +69,11 @@ CREATE POLICY "Owner or service role can update products"
   ON public.products FOR UPDATE
   USING (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   )
   WITH CHECK (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   );
 
 -- Scoped RLS: Only owner or service role can delete products
@@ -73,12 +81,18 @@ CREATE POLICY "Owner or service role can delete products"
   ON public.products FOR DELETE
   USING (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   );
 
 -- ----------------------------------------------------------------------------
 -- 2. APP SETTINGS USER-SCOPED ISOLATION & RLS LOCKDOWN
 -- ----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  id text PRIMARY KEY DEFAULT 'default',
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
 
 ALTER TABLE public.app_settings
   ADD COLUMN IF NOT EXISTS user_id text;
@@ -104,23 +118,30 @@ CREATE POLICY "Users can read own settings"
   ON public.app_settings FOR SELECT
   USING (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   );
 
 CREATE POLICY "Users can modify own settings"
   ON public.app_settings FOR ALL
   USING (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   )
   WITH CHECK (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   );
 
 -- ----------------------------------------------------------------------------
 -- 3. PUSH SUBSCRIPTIONS USER OWNERSHIP & RLS LOCKDOWN
 -- ----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  endpoint text UNIQUE NOT NULL,
+  keys jsonb NOT NULL,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
 
 ALTER TABLE public.push_subscriptions
   ADD COLUMN IF NOT EXISTS user_id text;
@@ -141,52 +162,97 @@ CREATE POLICY "Users can manage own push subscriptions"
   ON public.push_subscriptions FOR ALL
   USING (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   )
   WITH CHECK (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   );
 
 -- ----------------------------------------------------------------------------
 -- 4. SEARCH HISTORY RLS LOCKDOWN
 -- ----------------------------------------------------------------------------
 
+CREATE TABLE IF NOT EXISTS public.search_history (
+  id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id text,
+  created_by_name text,
+  platform text NOT NULL,
+  query text NOT NULL,
+  result_count integer DEFAULT 0,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_history_user_platform
+  ON public.search_history(user_id, platform, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_search_history_query
+  ON public.search_history(lower(query));
+
+CREATE INDEX IF NOT EXISTS idx_search_history_created
+  ON public.search_history(created_at DESC);
+
+ALTER TABLE public.search_history ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Allow public read search_history" ON public.search_history;
 DROP POLICY IF EXISTS "Allow public insert search_history" ON public.search_history;
 DROP POLICY IF EXISTS "Allow public delete search_history" ON public.search_history;
+DROP POLICY IF EXISTS "Service role full access on search_history" ON public.search_history;
 DROP POLICY IF EXISTS "Users can read own search_history" ON public.search_history;
 DROP POLICY IF EXISTS "Users can insert own search_history" ON public.search_history;
 DROP POLICY IF EXISTS "Users can delete own search_history" ON public.search_history;
+
+CREATE POLICY "Service role full access on search_history"
+  ON public.search_history FOR ALL
+  USING (coalesce(auth.jwt() ->> 'role', '') = 'service_role')
+  WITH CHECK (coalesce(auth.jwt() ->> 'role', '') = 'service_role');
 
 CREATE POLICY "Users can read own search_history"
   ON public.search_history FOR SELECT
   USING (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   );
 
 CREATE POLICY "Users can insert own search_history"
   ON public.search_history FOR INSERT
   WITH CHECK (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   );
 
 CREATE POLICY "Users can delete own search_history"
   ON public.search_history FOR DELETE
   USING (
     coalesce(auth.jwt() ->> 'role', '') = 'service_role'
-    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id::text)
   );
 
 -- ----------------------------------------------------------------------------
 -- 5. RATE LIMITS RLS LOCKDOWN & ATOMIC INCREMENT RPC
 -- ----------------------------------------------------------------------------
 
+CREATE TABLE IF NOT EXISTS public.rate_limits (
+  key text PRIMARY KEY,
+  points integer NOT NULL DEFAULT 1,
+  expire_at timestamptz NOT NULL,
+  last_attempt_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_expire
+  ON public.rate_limits(expire_at);
+
+ALTER TABLE public.rate_limits ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Allow public read rate_limits" ON public.rate_limits;
 DROP POLICY IF EXISTS "Allow public insert rate_limits" ON public.rate_limits;
 DROP POLICY IF EXISTS "Allow public update rate_limits" ON public.rate_limits;
+DROP POLICY IF EXISTS "Service role full access on rate_limits" ON public.rate_limits;
+
+CREATE POLICY "Service role full access on rate_limits"
+  ON public.rate_limits FOR ALL
+  USING (coalesce(auth.jwt() ->> 'role', '') = 'service_role')
+  WITH CHECK (coalesce(auth.jwt() ->> 'role', '') = 'service_role');
 
 -- Atomic sliding-window rate limit increment function
 CREATE OR REPLACE FUNCTION public.increment_rate_limit(
@@ -252,6 +318,7 @@ CREATE INDEX IF NOT EXISTS idx_alert_events_dedupe ON public.alert_events(dedupe
 
 ALTER TABLE public.alert_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role full access on alert_events" ON public.alert_events;
 CREATE POLICY "Service role full access on alert_events"
   ON public.alert_events FOR ALL
   USING (coalesce(auth.jwt() ->> 'role', '') = 'service_role')
@@ -294,11 +361,13 @@ CREATE INDEX IF NOT EXISTS idx_scrape_run_items_run ON public.scrape_run_items(r
 ALTER TABLE public.scrape_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scrape_run_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role full access on scrape_runs" ON public.scrape_runs;
 CREATE POLICY "Service role full access on scrape_runs"
   ON public.scrape_runs FOR ALL
   USING (coalesce(auth.jwt() ->> 'role', '') = 'service_role')
   WITH CHECK (coalesce(auth.jwt() ->> 'role', '') = 'service_role');
 
+DROP POLICY IF EXISTS "Service role full access on scrape_run_items" ON public.scrape_run_items;
 CREATE POLICY "Service role full access on scrape_run_items"
   ON public.scrape_run_items FOR ALL
   USING (coalesce(auth.jwt() ->> 'role', '') = 'service_role')
