@@ -48,13 +48,13 @@ export function PriceChart({ history, lowestPrice }: PriceChartProps) {
   }, [history]);
 
   return (
-    <div className="w-full bg-slate-900/40 p-4 rounded-xl border border-slate-800">
-      <div className="flex items-center justify-between mb-4">
+    <div className="w-full bg-slate-900/40 p-3.5 sm:p-4 rounded-xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 sm:mb-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-200">Price Trend</h3>
-          <p className="text-xs text-slate-400">Tracked over time</p>
+          <p className="text-[11px] sm:text-xs text-slate-400">Tracked over time</p>
         </div>
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-3 text-[11px] sm:text-xs">
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-0.5 bg-emerald-400" />
             <span className="text-slate-400">Price</span>
@@ -66,20 +66,21 @@ export function PriceChart({ history, lowestPrice }: PriceChartProps) {
         </div>
       </div>
 
-      <div className="h-64 w-full">
+      <div className="h-60 sm:h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 10, right: 8, left: -15, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis
               dataKey="date"
               stroke="#64748b"
-              fontSize={11}
+              fontSize={10}
               tickLine={false}
               axisLine={{ stroke: '#334155' }}
             />
             <YAxis
               stroke="#64748b"
-              fontSize={11}
+              fontSize={10}
+              width={50}
               tickLine={false}
               axisLine={{ stroke: '#334155' }}
               domain={[Math.max(0, Math.floor(minPrice - padding)), Math.ceil(maxPrice + padding)]}

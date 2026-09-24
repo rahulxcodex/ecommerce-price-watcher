@@ -20,12 +20,12 @@ const targets: TargetItem[] = [
   },
   {
     platform: 'Ajio',
-    url: 'https://www.ajio.com/gap-men-logo-crew-neck-t-shirt/p/441123456_blue',
+    url: 'https://www.ajio.com/performax-regular-fit-fastdry-active-crew-neck-t-shirt/p/441128501_offwhite',
     scraper: scrapeAjio,
   },
   {
     platform: 'Westside',
-    url: 'https://www.westside.com/products/eta-sage-slim-fit-shirt-300958742',
+    url: 'https://www.westside.com/products/nuon-black-solid-relaxed-fit-cotton-shirt-301037894',
     scraper: scrapeWestside,
   },
 ];

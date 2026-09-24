@@ -115,9 +115,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Top Banner / Stats */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-slate-800">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
+          <h1 className="text-xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
             Tracked Products
           </h1>
           <p className="text-xs text-slate-400 mt-1">
@@ -125,21 +125,21 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto">
           <button
             onClick={() => exportData('csv')}
             disabled={products.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs transition-colors disabled:opacity-50"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs transition-colors disabled:opacity-50"
             title="Export CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-400" />
-            <span className="hidden sm:inline">Export CSV</span>
+            <span>Export CSV</span>
           </button>
 
           <button
             onClick={fetchProducts}
             disabled={isLoading}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-colors"
+            className="p-2 sm:p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-colors"
             title="Refresh list"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -147,7 +147,7 @@ export default function DashboardPage() {
 
           <Link
             href="/add"
-            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" />
             <span>Add Product</span>
@@ -156,26 +156,54 @@ export default function DashboardPage() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by product name..."
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          <div className="relative flex-1 w-full md:max-w-md">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by product name..."
+              className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* All-time low filter button */}
+            <button
+              onClick={() => setOnlyAllTimeLow(!onlyAllTimeLow)}
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors flex-1 sm:flex-none ${
+                onlyAllTimeLow
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <span>All-time Low ({allTimeLowCount})</span>
+            </button>
+
+            {/* Sort dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-slate-900 border border-slate-800 text-slate-300 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none flex-1 sm:flex-none"
+            >
+              <option value="recent">Sort: Newest</option>
+              <option value="discount">Sort: Highest Discount</option>
+              <option value="price_asc">Sort: Lowest Price</option>
+            </select>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Platform toggle */}
-          <div className="inline-flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+        {/* Platform toggle (touch-scrollable horizontal bar on mobile) */}
+        <div className="w-full overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+          <div className="inline-flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs whitespace-nowrap">
             {(['all', 'amazon', 'flipkart', 'meesho', 'myntra', 'ajio', 'westside'] as const).map((plat) => (
               <button
                 key={plat}
                 onClick={() => setSelectedPlatform(plat)}
-                className={`px-3 py-1.5 rounded-lg font-medium capitalize transition-colors ${
+                className={`px-3 py-1.5 rounded-lg font-medium capitalize transition-colors flex-shrink-0 ${
                   selectedPlatform === plat
                     ? 'bg-slate-800 text-emerald-400 font-semibold'
                     : 'text-slate-400 hover:text-slate-200'
@@ -185,30 +213,6 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-
-          {/* All-time low filter button */}
-          <button
-            onClick={() => setOnlyAllTimeLow(!onlyAllTimeLow)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
-              onlyAllTimeLow
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-            }`}
-          >
-            <Flame className="w-3.5 h-3.5" />
-            <span>All-time Low ({allTimeLowCount})</span>
-          </button>
-
-          {/* Sort dropdown */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="bg-slate-900 border border-slate-800 text-slate-300 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none"
-          >
-            <option value="recent">Sort: Newest</option>
-            <option value="discount">Sort: Highest Discount</option>
-            <option value="price_asc">Sort: Lowest Price</option>
-          </select>
         </div>
       </div>
 
@@ -243,13 +247,13 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : sortedProducts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5">
           {sortedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
       ) : (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-12 text-center max-w-lg mx-auto space-y-4">
+        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center max-w-lg mx-auto space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-400 mx-auto">
             <ShoppingBag className="w-8 h-8" />
           </div>

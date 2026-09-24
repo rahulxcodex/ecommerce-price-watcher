@@ -166,10 +166,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       )}
 
       {/* Main Product Card Header */}
-      <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl">
-        <div className="flex flex-col md:flex-row gap-6">
+      <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
+        <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
           {/* Image */}
-          <div className="relative w-full md:w-48 h-48 rounded-2xl bg-slate-800 flex-shrink-0 flex items-center justify-center p-3 border border-slate-700/50 overflow-hidden">
+          <div className="relative w-full md:w-48 h-48 sm:h-52 rounded-2xl bg-slate-800 flex-shrink-0 flex items-center justify-center p-3 border border-slate-700/50 overflow-hidden">
             {product.image_url ? (
               <Image
                 src={product.image_url}
@@ -201,17 +201,17 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 )}
               </div>
 
-              <h1 className="text-lg sm:text-xl font-bold text-slate-100 leading-snug">
+              <h1 className="text-base sm:text-xl font-bold text-slate-100 leading-snug break-words">
                 {product.title}
               </h1>
 
               {/* Price Stats */}
-              <div className="mt-4 flex flex-wrap items-baseline gap-3">
-                <span className="text-3xl font-extrabold text-slate-100">
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-baseline gap-2.5 sm:gap-3">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-100">
                   {formatPrice(product.current_price, product.currency)}
                 </span>
                 {product.highest_price > product.current_price && (
-                  <span className="text-sm text-slate-500 line-through">
+                  <span className="text-xs sm:text-sm text-slate-500 line-through">
                     {formatPrice(product.highest_price, product.currency)}
                   </span>
                 )}
@@ -295,12 +295,12 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             </div>
 
             {/* Quick Actions */}
-            <div className="mt-6 flex flex-wrap items-center gap-2.5 pt-4 border-t border-slate-800">
+            <div className="mt-5 sm:mt-6 flex flex-wrap items-center gap-2 pt-4 border-t border-slate-800">
               <a
                 href={product.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition-colors shadow-md shadow-emerald-500/20"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors shadow-md shadow-emerald-500/20 whitespace-nowrap"
               >
                 <span>Buy on {product.platform.toUpperCase()}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -308,7 +308,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
               <button
                 onClick={handleToggleActive}
-                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap"
               >
                 {product.is_active ? (
                   <>
@@ -325,7 +325,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
               <button
                 onClick={handleDelete}
-                className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ml-auto"
+                className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Stop Tracking</span>
@@ -335,26 +335,26 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         </div>
 
         {/* 3 Metric cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-slate-800/80">
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-slate-800/80">
+          <div className="bg-slate-950/60 p-3 sm:p-3.5 rounded-xl border border-slate-800/60">
             <span className="text-slate-500 text-[10px] uppercase font-semibold block">All-time Lowest</span>
-            <span className="text-lg font-bold text-emerald-400">
+            <span className="text-base sm:text-lg font-bold text-emerald-400">
               {formatPrice(product.lowest_price, product.currency)}
             </span>
           </div>
 
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60">
+          <div className="bg-slate-950/60 p-3 sm:p-3.5 rounded-xl border border-slate-800/60">
             <span className="text-slate-500 text-[10px] uppercase font-semibold block">Highest Recorded</span>
-            <span className="text-lg font-bold text-slate-300">
+            <span className="text-base sm:text-lg font-bold text-slate-300">
               {formatPrice(product.highest_price, product.currency)}
             </span>
           </div>
 
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60">
+          <div className="col-span-2 sm:col-span-1 bg-slate-950/60 p-3 sm:p-3.5 rounded-xl border border-slate-800/60">
             <span className="text-slate-500 text-[10px] uppercase font-semibold block">Last Checked</span>
-            <span className="text-sm font-semibold text-slate-300 flex items-center gap-1 mt-1">
-              <Clock className="w-3.5 h-3.5 text-slate-500" />
-              {formatRelativeTime(product.last_checked_at)}
+            <span className="text-xs sm:text-sm font-semibold text-slate-300 flex items-center gap-1 mt-1">
+              <Clock className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+              <span>{formatRelativeTime(product.last_checked_at)}</span>
             </span>
           </div>
         </div>
@@ -364,16 +364,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       <PriceChart history={history} lowestPrice={product.lowest_price} />
 
       {/* Target Price Configuration */}
-      <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl">
+      <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
         <div className="flex items-center gap-2 mb-2">
           <BellRing className="w-4 h-4 text-emerald-400" />
-          <h2 className="text-base font-bold text-slate-100">Set Custom Price Alert</h2>
+          <h2 className="text-sm sm:text-base font-bold text-slate-100">Set Custom Price Alert</h2>
         </div>
         <p className="text-xs text-slate-400 mb-4 leading-relaxed">
           In addition to the automatic All-Time Low notification, get an instant Telegram alert if the price dips below your specified target.
         </p>
 
-        <form onSubmit={handleUpdateTarget} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <form onSubmit={handleUpdateTarget} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
           <div className="relative flex-1">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">₹</span>
             <input

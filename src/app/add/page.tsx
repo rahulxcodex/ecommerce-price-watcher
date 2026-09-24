@@ -51,8 +51,7 @@ function AddProductForm() {
 
     setDetectedPlatform(plat);
 
-    if (plat === 'ajio' || plat === 'myntra' || plat === 'westside') {
-      setShowManualPrice(true);
+    if (plat) {
       const title = deriveTitleFromUrl(val, plat);
       if (title) setDerivedTitle(title);
     }
@@ -73,20 +72,6 @@ function AddProductForm() {
     const urlCheck = validateAndSanitizeUrl(url.trim());
     if (!urlCheck.valid) {
       setError(urlCheck.error || 'Please enter a valid e-commerce product URL.');
-      return;
-    }
-
-    // Instant client-side validation for anti-bot protected stores
-    if (
-      (detectedPlatform === 'ajio' || detectedPlatform === 'myntra' || detectedPlatform === 'westside') &&
-      (!currentPrice || Number(currentPrice) <= 0)
-    ) {
-      setShowManualPrice(true);
-      setError(
-        `${detectedPlatform.toUpperCase()} blocks automated cloud requests via anti-bot protections. Please enter the current price (₹) you see on the store page to start tracking.`
-      );
-      const inputEl = document.getElementById('current-price-input');
-      if (inputEl) inputEl.focus();
       return;
     }
 
@@ -142,9 +127,9 @@ function AddProductForm() {
         <span>Back to Dashboard</span>
       </Link>
 
-      <div className="bg-slate-900/60 border border-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl">
+      <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
             <PlusCircle className="w-5 h-5" />
           </div>
           <div>
@@ -154,7 +139,7 @@ function AddProductForm() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-400 text-xs">
+          <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-400 text-xs">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="font-semibold">Unable to Track Link</p>
@@ -167,7 +152,7 @@ function AddProductForm() {
         )}
 
         {success && (
-          <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3 text-emerald-400 text-xs">
+          <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3 text-emerald-400 text-xs">
             <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold">Product Added!</p>
@@ -176,10 +161,10 @@ function AddProductForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
           {/* URL Input */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
               <label htmlFor="url-input" className="text-xs font-semibold text-slate-200">
                 Product URL <span className="text-red-400">*</span>
               </label>
@@ -198,14 +183,14 @@ function AddProductForm() {
               placeholder="Paste product link (Amazon, Flipkart, Meesho, Myntra, Ajio, Westside)..."
               required
               disabled={isLoading}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
             />
           </div>
 
           {/* Manual Current Price (Bypasses Store Anti-Bot) */}
           {(showManualPrice || currentPrice) && (
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-2.5">
-              <div className="flex items-center justify-between">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <label htmlFor="current-price-input" className="block text-xs font-semibold text-amber-300">
                   Current Store Price in ₹ (Anti-Bot Bypass)
                 </label>

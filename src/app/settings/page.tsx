@@ -406,11 +406,11 @@ export default function SettingsPage() {
       )}
 
       {/* Web Push Notification Banner & Diagnostic Box */}
-      <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-3xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-slate-900/80 border border-slate-800 p-4 sm:p-5 rounded-2xl sm:rounded-3xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <Smartphone className="w-4 h-4 text-emerald-400" />
+            <div className="flex flex-wrap items-center gap-2">
+              <Smartphone className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <h3 className="text-sm font-bold text-slate-100">Instant In-Browser Web Push</h3>
               {pushStatus === 'enabled' && (
                 <span className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
@@ -423,13 +423,13 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {pushStatus === 'enabled' && (
               <button
                 type="button"
                 onClick={handleTestPush}
                 disabled={isTestingPush}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5"
+                className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center justify-center gap-1.5"
               >
                 {isTestingPush ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BellRing className="w-3.5 h-3.5 text-emerald-400" />}
                 <span>Send Test Push</span>
@@ -451,7 +451,7 @@ export default function SettingsPage() {
               onClick={handleEnableWebPush}
               disabled={isPushLoading}
               title={pushStatus === 'enabled' ? 'Click to re-sync push registration with server' : 'Enable Web Push'}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap ${
+              className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 pushStatus === 'enabled'
                   ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30'
                   : 'bg-emerald-500 hover:bg-emerald-600 text-slate-950'
@@ -513,11 +513,11 @@ export default function SettingsPage() {
       </div>
 
       {/* Chrome Extension Companion Feature Card */}
-      <div className="bg-gradient-to-r from-slate-900 to-emerald-950/40 border border-emerald-500/20 p-5 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-slate-900 to-emerald-950/40 border border-emerald-500/20 p-4 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-slate-100">PriceWatcher Chrome Extension Companion</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <h3 className="text-sm font-bold text-slate-100">PriceWatcher Extension Companion</h3>
             <span className="text-[10px] bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2 py-0.5 rounded-full font-semibold">
               v1.1.0
             </span>
@@ -533,7 +533,7 @@ export default function SettingsPage() {
         <a
           href="/api/extension/download"
           download="PriceWatcher-Companion-Extension.zip"
-          className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 transition-all flex items-center gap-2 whitespace-nowrap self-start sm:self-auto shadow-md hover:border-emerald-500/50"
+          className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-md hover:border-emerald-500/50"
         >
           <Download className="w-4 h-4 text-emerald-400" />
           <span>Download Extension (.zip)</span>
@@ -542,14 +542,14 @@ export default function SettingsPage() {
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Telegram Configuration */}
-        <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+              <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 flex-shrink-0">
                 <Send className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-sm font-bold text-slate-200">1. Telegram Bot Alerts</h2>
                   <span className="text-[10px] bg-slate-800 text-sky-400 px-2 py-0.5 rounded-full border border-sky-500/20">
                     100% Free • Unlimited
@@ -565,7 +565,7 @@ export default function SettingsPage() {
               type="button"
               onClick={() => handleTestChannel('telegram', settings.telegram_chat_id || '')}
               disabled={!settings.telegram_chat_id || testingChannel === 'telegram'}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
+              className="self-start sm:self-auto px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
             >
               {testingChannel === 'telegram' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               <span>Test Telegram</span>
@@ -573,7 +573,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="pt-2">
-            <div className="flex justify-between items-center mb-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5 mb-1">
               <label className="block text-xs font-medium text-slate-300">
                 Telegram Chat ID(s)
               </label>
@@ -592,14 +592,14 @@ export default function SettingsPage() {
         </div>
 
         {/* Discord Webhook Configuration (100% Free & Unlimited) */}
-        <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0">
                 <Radio className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-sm font-bold text-slate-200">2. Discord Webhooks (Free Alternative)</h2>
                   <span className="text-[10px] bg-indigo-500/15 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">
                     100% Free • Rich Embeds
@@ -615,7 +615,7 @@ export default function SettingsPage() {
               type="button"
               onClick={() => handleTestChannel('discord', settings.discord_webhook || '')}
               disabled={!settings.discord_webhook || testingChannel === 'discord'}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
+              className="self-start sm:self-auto px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
             >
               {testingChannel === 'discord' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               <span>Test Discord</span>
@@ -623,7 +623,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="pt-2">
-            <div className="flex justify-between items-center mb-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5 mb-1">
               <label className="block text-xs font-medium text-slate-300">
                 Discord Webhook URL(s)
               </label>
@@ -645,14 +645,14 @@ export default function SettingsPage() {
         </div>
 
         {/* ntfy.sh Push Configuration (100% Free, Zero Setup) */}
-        <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
                 <Smartphone className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-sm font-bold text-slate-200">3. ntfy.sh Mobile Push (Free Alternative)</h2>
                   <span className="text-[10px] bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
                     Zero Setup • No Phone #
@@ -668,7 +668,7 @@ export default function SettingsPage() {
               type="button"
               onClick={() => handleTestChannel('ntfy', settings.ntfy_topic || '')}
               disabled={!settings.ntfy_topic || testingChannel === 'ntfy'}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
+              className="self-start sm:self-auto px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
             >
               {testingChannel === 'ntfy' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               <span>Test ntfy</span>
@@ -676,7 +676,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="pt-2">
-            <div className="flex justify-between items-center mb-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5 mb-1">
               <label className="block text-xs font-medium text-slate-300">
                 ntfy Topic Name(s)
               </label>
@@ -698,14 +698,14 @@ export default function SettingsPage() {
         </div>
 
         {/* Free WhatsApp Configuration (CallMeBot) */}
-        <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
                 <MessageSquare className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-sm font-bold text-slate-200">4. Free WhatsApp Alerts (CallMeBot Gateway)</h2>
                   <span className="text-[10px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
                     100% Free
@@ -721,7 +721,7 @@ export default function SettingsPage() {
               type="button"
               onClick={() => handleTestChannel('whatsapp', settings.whatsapp_phone || '', settings.whatsapp_apikey || '')}
               disabled={!settings.whatsapp_phone || !settings.whatsapp_apikey || testingChannel === 'whatsapp'}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
+              className="self-start sm:self-auto px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
             >
               {testingChannel === 'whatsapp' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               <span>Test WhatsApp</span>
@@ -730,7 +730,7 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             <div>
-              <div className="flex justify-between items-center mb-1">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5 mb-1">
                 <label className="block text-xs font-medium text-slate-300">
                   WhatsApp Phone(s)
                 </label>
@@ -760,14 +760,14 @@ export default function SettingsPage() {
         </div>
 
         {/* Email Alerts (Google Apps Script) */}
-        <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
                 <Mail className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-sm font-bold text-slate-200">5. Email Alerts (Google Apps Script)</h2>
                   <span className="text-[10px] bg-slate-800 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20">
                     Free Gmail Relay
@@ -783,7 +783,7 @@ export default function SettingsPage() {
               type="button"
               onClick={() => handleTestChannel('email', settings.email || '')}
               disabled={!settings.email || testingChannel === 'email'}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
+              className="self-start sm:self-auto px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
             >
               {testingChannel === 'email' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               <span>Test Email</span>
@@ -791,7 +791,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="pt-2">
-            <div className="flex justify-between items-center mb-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5 mb-1">
               <label className="block text-xs font-medium text-slate-300">
                 Email Address(es)
               </label>
@@ -808,13 +808,13 @@ export default function SettingsPage() {
         </div>
 
         {/* Notification Frequency Preference */}
-        <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl space-y-4">
+        <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0">
               <BellRing className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-200">4. Alert Trigger Preference</h2>
+              <h2 className="text-sm font-bold text-slate-200">6. Alert Trigger Preference</h2>
               <p className="text-[11px] text-slate-400">
                 Choose when you want to receive price drop alerts
               </p>
@@ -845,20 +845,20 @@ export default function SettingsPage() {
         </div>
 
         {/* Active Bank Cards for Discount Calculation */}
-        <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl space-y-4">
+        <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 flex-shrink-0">
               <CreditCard className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-200">5. Bank Offer & Card Calculator</h2>
+              <h2 className="text-sm font-bold text-slate-200">7. Bank Offer & Card Calculator</h2>
               <p className="text-[11px] text-slate-400">
                 Select the bank cards you own to automatically calculate net payable prices on products
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2.5 pt-2">
+          <div className="flex flex-wrap gap-2 sm:gap-2.5 pt-2">
             {['HDFC', 'ICICI', 'SBI', 'Axis', 'Kotak', 'OneCard', 'Federal', 'Bank of Baroda'].map((bank) => {
               const active = settings.selected_bank_cards.includes(bank);
               return (
@@ -866,7 +866,7 @@ export default function SettingsPage() {
                   type="button"
                   key={bank}
                   onClick={() => handleToggleCard(bank)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                  className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-semibold border transition-all ${
                     active
                       ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
                       : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'
@@ -883,7 +883,7 @@ export default function SettingsPage() {
         <button
           type="submit"
           disabled={isSaving}
-          className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-bold py-3.5 px-4 rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2"
+          className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-bold py-3 sm:py-3.5 px-4 rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2"
         >
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           <span>Save All Settings</span>

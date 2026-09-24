@@ -27,15 +27,15 @@ export default function HomePage() {
   };
 
   return (
-    <div className="space-y-20 py-4">
+    <div className="space-y-12 sm:space-y-20 py-2 sm:py-4">
       {/* Hero Section */}
-      <section className="relative text-center max-w-4xl mx-auto space-y-6 pt-8">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-          <Sparkles className="w-3.5 h-3.5" />
+      <section className="relative text-center max-w-4xl mx-auto space-y-4 sm:space-y-6 pt-4 sm:pt-8">
+        <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] sm:text-xs font-semibold max-w-full">
+          <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
           <span>100% Free • Amazon • Flipkart • Meesho • Myntra • Ajio • Westside</span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-100">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-100 leading-tight">
           Paste any link. <br />
           Get alerted at{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
@@ -43,7 +43,7 @@ export default function HomePage() {
           </span>
         </h1>
 
-        <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
+        <p className="text-sm sm:text-base md:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed px-2">
           Stop constantly refreshing product pages. Paste a link from Amazon, Flipkart, Meesho, Myntra, Ajio, or Westside.
           Our automated GitHub Actions tracker checks prices 4× daily and pings your Telegram immediately when prices drop.
         </p>
@@ -51,7 +51,7 @@ export default function HomePage() {
         {/* Quick URL Input Bar */}
         <form
           onSubmit={handleQuickSubmit}
-          className="max-w-2xl mx-auto mt-8 flex flex-col sm:flex-row items-center gap-2 bg-slate-900/90 p-2 rounded-2xl border border-slate-800 shadow-2xl shadow-emerald-500/5 focus-within:border-emerald-500/50 transition-colors"
+          className="max-w-2xl mx-auto mt-6 sm:mt-8 flex flex-col sm:flex-row items-center gap-2 bg-slate-900/90 p-1.5 sm:p-2 rounded-2xl border border-slate-800 shadow-2xl shadow-emerald-500/5 focus-within:border-emerald-500/50 transition-colors"
         >
           <input
             type="url"
@@ -59,11 +59,11 @@ export default function HomePage() {
             onChange={(e) => setUrl(e.target.value)}
             placeholder="Paste product link (Amazon, Flipkart, Meesho, Myntra, Ajio, Westside)..."
             required
-            className="w-full bg-transparent px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
+            className="w-full bg-transparent px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
           />
           <button
             type="submit"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-6 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap"
           >
             <span>Track Now</span>
             <ArrowRight className="w-4 h-4" />
@@ -71,8 +71,8 @@ export default function HomePage() {
         </form>
 
         {/* Supported Platforms Strip */}
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
-          <span className="text-xs text-slate-500">Supported:</span>
+        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-2 sm:pt-3">
+          <span className="text-[11px] sm:text-xs text-slate-500">Supported:</span>
           <PlatformBadge platform="amazon" />
           <PlatformBadge platform="flipkart" />
           <PlatformBadge platform="meesho" />
@@ -123,18 +123,18 @@ export default function HomePage() {
       </section>
 
       {/* Security & Reliability Features */}
-      <section className="max-w-5xl mx-auto bg-gradient-to-b from-slate-900/60 to-slate-950 border border-slate-800 p-8 rounded-3xl">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+      <section className="max-w-5xl mx-auto bg-gradient-to-b from-slate-900/60 to-slate-950 border border-slate-800 p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div>
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">
               <ShieldCheck className="w-4 h-4" />
               <span>Built-in Security Architecture</span>
             </div>
-            <h2 className="text-2xl font-bold text-slate-100">Enterprise Security on Free Infrastructure</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Enterprise Security on Free Infrastructure</h2>
           </div>
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors border border-slate-700"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors border border-slate-700"
           >
             <span>Open Dashboard</span>
             <ArrowRight className="w-3.5 h-3.5" />

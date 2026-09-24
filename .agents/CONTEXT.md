@@ -37,3 +37,4 @@ Amazon India, Flipkart, Meesho, Myntra, Ajio, Westside
 - [x] Phase 5: New features (CSV export on dashboard, price trend directional prediction badge, 7d/30d rolling floor indicators, restock detection).
 - [x] Phase 6: Full test suite passing (100% across 6 test suites, 70+ assertions).
 - [x] Phase 7: Pushed to GitHub `main` and deployed to Vercel production.
+- [x] Phase 8: Mobile-Friendly & Responsive UI Overhaul (Next.js Viewport export, mobile hamburger navigation drawer, touch-scrollable platform chips, responsive dashboard/detail/settings/add/extension pages, zero horizontal scroll, full build and test verification).

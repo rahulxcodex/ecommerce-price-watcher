@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { parsePrice, isPlaywrightAvailable } from './utils';
+import { parsePrice, isPlaywrightAvailable, getRandomUserAgent } from './utils';
 import { ScrapeResult } from '../../src/types';
 import {
   extractJsonLdProduct,
@@ -9,15 +9,83 @@ import {
 } from './resilient-extractor';
 
 export async function scrapeAjio(url: string): Promise<ScrapeResult> {
-  // Strategy 1: Extract Product Code and Query Native Ajio JSON API
-  // Pure JSON API is 100% resilient to HTML/CSS redesigns
+  // Strategy 1: Query Ajio Unblocked Search API by Product Code or Slug
+  // Ajio's search endpoint is completely unblocked by Akamai and returns full price, title, image & stock JSON
   const productCodeMatch = url.match(/\/p\/([a-zA-Z0-9_\-]+)/);
   const productCode = productCodeMatch ? productCodeMatch[1] : null;
+  const numericCodeMatch = productCode ? productCode.match(/^(\d+)/) : null;
+  const baseCode = numericCodeMatch ? numericCodeMatch[1] : productCode;
 
+  const slugMatch = url.match(/ajio\.com\/([^/]+)\/p\//);
+  const slugKeywords = slugMatch
+    ? decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').trim()
+    : '';
+
+  const searchCandidates = [baseCode, slugKeywords].filter(Boolean) as string[];
+
+  for (const query of searchCandidates) {
+    try {
+      const searchUrl = `https://www.ajio.com/api/search?fields=DEFAULT&query=${encodeURIComponent(query)}&pageSize=5`;
+      const searchRes = await fetch(searchUrl, {
+        headers: {
+          'User-Agent': getRandomUserAgent(),
+          'Accept': 'application/json',
+          'Referer': 'https://www.ajio.com/',
+        },
+      });
+
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (searchData.products && searchData.products.length > 0) {
+          // Find the product matching the code, color group, or URL
+          const matched =
+            searchData.products.find(
+              (p: any) =>
+                (baseCode && p.code?.startsWith(baseCode)) ||
+                (p.fnlColorVariantData?.colorGroup && productCode?.includes(p.fnlColorVariantData.colorGroup)) ||
+                (slugMatch && p.url?.includes(slugMatch[1]))
+            ) || searchData.products[0];
+
+          if (matched && matched.price && Number(matched.price.value) > 0) {
+            const price = Number(matched.price.value);
+            const brand = matched.fnlColorVariantData?.brandName ? `${matched.fnlColorVariantData.brandName} ` : '';
+            const name = matched.name || 'Ajio Product';
+            const title = name.toLowerCase().startsWith(brand.toLowerCase().trim()) ? name : `${brand}${name}`;
+            const imageUrl =
+              matched.images?.[0]?.url ||
+              matched.fnlColorVariantData?.outfitPictureURL ||
+              undefined;
+            const isOutOfStock =
+              matched.fnlColorVariantData?.outOfStock === true ||
+              matched.fnlColorVariantData?.maxQuantity === 0;
+
+            return {
+              success: true,
+              title: title.trim(),
+              price,
+              imageUrl,
+              currency: 'INR',
+              isOutOfStock,
+            };
+          }
+        }
+      }
+    } catch {
+      // Fall through to next candidate or strategy
+    }
+  }
+
+  // Strategy 1B: Direct Product API fallback
   if (productCode) {
     try {
       const apiUrl = `https://www.ajio.com/api/p/${productCode}`;
-      const apiRes = await resilientFetch(apiUrl, 8000);
+      const apiRes = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': getRandomUserAgent(),
+          'Accept': 'application/json',
+          'Referer': 'https://www.ajio.com/',
+        },
+      });
       if (apiRes.ok) {
         const apiData = await apiRes.json();
         if (apiData && apiData.price) {
@@ -30,10 +98,6 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
             apiData.baseOptions?.[0]?.options?.[0]?.modelImage?.url;
           const isOutOfStock = apiData.stock?.stockLevelStatus === 'outOfStock';
 
-          const availableSizes: string[] = (apiData.baseOptions?.[0]?.options || [])
-            .map((opt: { modelImage?: { altText?: string }; scDisplaySizeValue?: string }) => opt.scDisplaySizeValue || opt.modelImage?.altText || '')
-            .filter(Boolean);
-
           if (price && Number(price) > 0) {
             return {
               success: true,
@@ -42,7 +106,6 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
               imageUrl: imageUrl?.startsWith('http') ? imageUrl : imageUrl ? `https://assets.ajio.com${imageUrl}` : undefined,
               currency: 'INR',
               isOutOfStock,
-              availableSizes: availableSizes.length > 0 ? availableSizes : undefined,
             };
           }
         }

@@ -65,7 +65,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="flex-1 min-w-0">
             <Link
               href={`/product/${product.id}`}
-              className="font-semibold text-sm text-slate-100 hover:text-emerald-400 line-clamp-2 transition-colors"
+              className="font-semibold text-sm text-slate-100 hover:text-emerald-400 line-clamp-2 break-words transition-colors"
               title={product.title}
             >
               {product.title}
@@ -88,7 +88,7 @@ export function ProductCard({ product }: ProductCardProps) {
             </div>
 
             {product.bank_offers && product.bank_offers.length > 0 && (
-              <div className="mt-1 text-[11px] text-amber-400/90 font-medium flex items-center gap-1">
+              <div className="mt-1 text-[11px] text-amber-400/90 font-medium flex items-center gap-1 line-clamp-1">
                 <span>💳 {product.bank_offers[0].description.slice(0, 45)}...</span>
               </div>
             )}
@@ -133,15 +133,15 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="flex items-center gap-2">
           <Link
             href={`/product/${product.id}`}
-            className="flex-1 text-center bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold py-2 px-3 rounded-lg transition-colors"
+            className="flex-1 text-center bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold py-2.5 px-3 rounded-xl transition-colors"
           >
-            History & Alert
+            History &amp; Alert
           </Link>
           <a
             href={product.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg transition-colors"
+            className="p-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl transition-colors"
             title="Buy on Store"
           >
             <ExternalLink className="w-4 h-4" />
