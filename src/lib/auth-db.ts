@@ -111,6 +111,20 @@ export async function authenticateByEmailAndPin(
 
     if (!error && data) {
       userRecord = data as StoredUser;
+    } else if (error && (error.message.includes('column') || error.message.includes('schema cache'))) {
+      // Schema bridge: fallback to search in name if migration 008 is pending in SQL editor
+      const { data: fallbackData } = await db
+        .from('app_users')
+        .select('*')
+        .ilike('name', `%[${normEmail}]%`)
+        .maybeSingle();
+      if (fallbackData) {
+        userRecord = {
+          ...fallbackData,
+          name: fallbackData.name.replace(/\s*\[.*?\]$/, ''),
+          email: normEmail,
+        } as StoredUser;
+      }
     }
   } catch {
     // Supabase query error fallback
@@ -151,6 +165,13 @@ export async function isEmailTaken(email: string): Promise<boolean> {
 
     if (!error && data) {
       return true;
+    } else if (error && (error.message.includes('column') || error.message.includes('schema cache'))) {
+      const { data: fallbackData } = await db
+        .from('app_users')
+        .select('id')
+        .ilike('name', `%[${normEmail}]%`)
+        .maybeSingle();
+      if (fallbackData) return true;
     }
   } catch {
     // ignore
@@ -253,7 +274,7 @@ export async function createUser(params: {
   const db = getDbClient();
 
   try {
-    await db.from('app_users').insert({
+    const { error: insertErr } = await db.from('app_users').insert({
       id: newUser.id,
       name: newUser.name,
       email: newUser.email,
@@ -264,6 +285,23 @@ export async function createUser(params: {
       created_at: newUser.created_at,
       updated_at: newUser.updated_at,
     });
+
+    if (insertErr) {
+      console.warn('Direct insert into app_users failed, trying schema bridge:', insertErr.message);
+      if (insertErr.message.includes('column') || insertErr.message.includes('schema cache')) {
+        // Fallback for when migration 008 is pending in SQL editor: store email inside name
+        await db.from('app_users').insert({
+          id: newUser.id,
+          name: `${newUser.name} [${newUser.email}]`,
+          pin_hash: newUser.pin_hash,
+          pin_salt: newUser.pin_salt,
+          is_combined: newUser.is_combined,
+          role: newUser.role,
+          created_at: newUser.created_at,
+          updated_at: newUser.updated_at,
+        });
+      }
+    }
   } catch (err) {
     console.warn('Failed to insert user into Supabase app_users table:', err);
   }
