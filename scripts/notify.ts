@@ -185,6 +185,182 @@ export async function sendEmailAlert(data: {
 }
 
 /**
+ * Sends scraper failure alert via Email to rahulr24g@gmail.com
+ */
+export async function sendScraperFailureAlert(data: {
+  productTitle: string;
+  productUrl: string;
+  platform: string;
+  error: string;
+  retryAttempts?: number;
+  to?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const apiUrl = process.env.APPSCRIPT_EMAIL_URL;
+  const recipient = data.to || process.env.SCRAPER_ALERT_EMAIL || process.env.APPSCRIPT_TO_EMAIL || 'rahulr24g@gmail.com';
+
+  if (!apiUrl) {
+    console.warn(`[sendScraperFailureAlert] APPSCRIPT_EMAIL_URL not set. Failure alert simulated for ${recipient}: ${data.error}`);
+    return { success: false, error: 'APPSCRIPT_EMAIL_URL is not configured.' };
+  }
+
+  const subject = `⚠️ [Scraper Failure] ${data.platform.toUpperCase()} - ${data.productTitle.slice(0, 45)}`;
+  const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 16px; border: 1px solid #1e293b;">
+      <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <h2 style="color: #f87171; margin: 0 0 8px 0; font-size: 18px;">⚠️ Scraper Extraction Failure</h2>
+        <p style="margin: 0; color: #cbd5e1; font-size: 14px;">The automated scraper encountered an extraction failure after ${data.retryAttempts || 2} attempt(s).</p>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px;">
+        <tr>
+          <td style="padding: 8px 0; color: #94a3b8; width: 120px;"><strong>Platform:</strong></td>
+          <td style="padding: 8px 0; color: #38bdf8; text-transform: uppercase; font-weight: bold;">${data.platform}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #94a3b8;"><strong>Product:</strong></td>
+          <td style="padding: 8px 0; color: #f1f5f9; font-weight: 600;">${data.productTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #94a3b8;"><strong>Error:</strong></td>
+          <td style="padding: 8px 0; color: #ef4444; font-family: monospace; background: #1e293b; padding: 8px; border-radius: 6px;">${data.error}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #94a3b8;"><strong>Time:</strong></td>
+          <td style="padding: 8px 0; color: #94a3b8;">${dateStr}</td>
+        </tr>
+      </table>
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="${data.productUrl}" style="background-color: #059669; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">View Store Page</a>
+      </div>
+    </div>
+  `;
+
+  const textBody = `
+⚠️ SCRAPER EXTRACTION FAILURE ALERT
+----------------------------------
+Platform: ${data.platform.toUpperCase()}
+Product: ${data.productTitle}
+Error: ${data.error}
+Attempts: ${data.retryAttempts || 2}
+Time: ${dateStr}
+URL: ${data.productUrl}
+  `.trim();
+
+  try {
+    const apiKey = process.env.APPSCRIPT_API_KEY;
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'scraper_failure',
+        apiKey,
+        to: recipient,
+        subject,
+        htmlBody,
+        textBody,
+      }),
+      redirect: 'follow',
+    });
+
+    const result = await res.json();
+    return { success: Boolean(result.success), error: result.error };
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errMsg };
+  }
+}
+
+/**
+ * Sends watchdog alert when scraping has not run for 3 or more hours
+ */
+export async function sendScraperStaleAlert(data: {
+  hoursSinceLastScrape: number;
+  lastScrapedAt: string | null;
+  totalActiveProducts: number;
+  to?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const apiUrl = process.env.APPSCRIPT_EMAIL_URL;
+  const recipient = data.to || process.env.SCRAPER_ALERT_EMAIL || process.env.APPSCRIPT_TO_EMAIL || 'rahulr24g@gmail.com';
+
+  if (!apiUrl) {
+    console.warn(`[sendScraperStaleAlert] APPSCRIPT_EMAIL_URL not set. Stale alert simulated for ${recipient}: ${data.hoursSinceLastScrape}h stale.`);
+    return { success: false, error: 'APPSCRIPT_EMAIL_URL is not configured.' };
+  }
+
+  const subject = `🚨 [Watchdog Alert] Price Watcher has not scraped for ${data.hoursSinceLastScrape} hours!`;
+  const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  const lastDateFormatted = data.lastScrapedAt
+    ? new Date(data.lastScrapedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+    : 'Unknown (never recorded)';
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 16px; border: 1px solid #1e293b;">
+      <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <h2 style="color: #fbbf24; margin: 0 0 8px 0; font-size: 18px;">🚨 Scraper Watchdog Alert: Pipeline Stoppage</h2>
+        <p style="margin: 0; color: #cbd5e1; font-size: 14px;">The automated price tracker has not performed a price check in over <strong>${data.hoursSinceLastScrape} hours</strong> (threshold: 3 hours).</p>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px;">
+        <tr>
+          <td style="padding: 8px 0; color: #94a3b8; width: 160px;"><strong>Last Successful Run:</strong></td>
+          <td style="padding: 8px 0; color: #f1f5f9;">${lastDateFormatted}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #94a3b8;"><strong>Elapsed Time:</strong></td>
+          <td style="padding: 8px 0; color: #fbbf24; font-weight: bold;">${data.hoursSinceLastScrape} hours ago</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #94a3b8;"><strong>Active Products:</strong></td>
+          <td style="padding: 8px 0; color: #38bdf8;">${data.totalActiveProducts} items pending checks</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #94a3b8;"><strong>Alert Generated:</strong></td>
+          <td style="padding: 8px 0; color: #94a3b8;">${dateStr}</td>
+        </tr>
+      </table>
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="https://ecommerce-price-watcher-puce.vercel.app/dashboard" style="background-color: #059669; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Open Dashboard & Trigger Scrape</a>
+      </div>
+    </div>
+  `;
+
+  const textBody = `
+🚨 SCRAPER WATCHDOG ALERT: PIPELINE STOPPAGE
+-------------------------------------------
+Price Watcher has not scraped for: ${data.hoursSinceLastScrape} hours (Limit: 3h)
+Last Successful Run: ${lastDateFormatted}
+Active Products in Watchlist: ${data.totalActiveProducts}
+Alert Generated: ${dateStr}
+
+Open Dashboard to trigger manual scrape:
+https://ecommerce-price-watcher-puce.vercel.app/dashboard
+  `.trim();
+
+  try {
+    const apiKey = process.env.APPSCRIPT_API_KEY;
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'scraper_stale',
+        apiKey,
+        to: recipient,
+        subject,
+        htmlBody,
+        textBody,
+      }),
+      redirect: 'follow',
+    });
+
+    const result = await res.json();
+    return { success: Boolean(result.success), error: result.error };
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errMsg };
+  }
+}
+
+/**
  * Sends rich embed price drop alert via Discord Webhook (100% Free, Unlimited)
  */
 export async function sendDiscordAlert(

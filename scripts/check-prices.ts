@@ -6,10 +6,10 @@ import { scrapeMyntra } from './scrapers/myntra';
 import { scrapeAjio } from './scrapers/ajio';
 import { scrapeWestside } from './scrapers/westside';
 import { delay } from './scrapers/utils';
-import { dispatchAlerts } from './notify';
+import { dispatchAlerts, sendScraperFailureAlert, sendScraperStaleAlert } from './notify';
 import { sendWebPushToAll } from '@/lib/web-push';
 import { validateScrapedPrice } from '@/lib/security';
-import { Product, AppSettings } from '@/types';
+import { Product, AppSettings, ScrapeResult } from '@/types';
 
 async function main() {
   console.log('🚀 Starting Scheduled Price Checker...');
@@ -64,6 +64,26 @@ async function main() {
     return;
   }
 
+  // 1.1 Watchdog Liveness Check: Alert if scraping hasn't occurred in the last 3 hours
+  const checkedTimestamps = rawProducts
+    .map((p) => (p.last_checked_at ? new Date(p.last_checked_at).getTime() : 0))
+    .filter((t) => t > 0);
+  const mostRecentScrape = checkedTimestamps.length > 0 ? Math.max(...checkedTimestamps) : 0;
+
+  if (mostRecentScrape > 0) {
+    const elapsedMs = Date.now() - mostRecentScrape;
+    const elapsedHours = elapsedMs / (1000 * 60 * 60);
+    if (elapsedHours >= 3.0) {
+      console.warn(`🚨 WATCHDOG: Last scrape was ${elapsedHours.toFixed(1)}h ago (>= 3h threshold). Dispatching stale alert to rahulr24g@gmail.com...`);
+      await sendScraperStaleAlert({
+        hoursSinceLastScrape: Math.round(elapsedHours * 10) / 10,
+        lastScrapedAt: new Date(mostRecentScrape).toISOString(),
+        totalActiveProducts: rawProducts.length,
+        to: 'rahulr24g@gmail.com',
+      });
+    }
+  }
+
   // 2. Fetch App Settings
   let settingsData = null;
   const { data: appSettings } = await supabase
@@ -115,30 +135,45 @@ async function main() {
     checkedCount++;
     console.log(`\n[${checkedCount}/${products.length}] Checking: ${product.title.slice(0, 40)}... (${product.platform})`);
 
-    let scrapeRes;
-    try {
-      if (product.platform === 'amazon') {
-        scrapeRes = await scrapeAmazon(product.url);
-      } else if (product.platform === 'flipkart') {
-        scrapeRes = await scrapeFlipkart(product.url);
-      } else if (product.platform === 'meesho') {
-        scrapeRes = await scrapeMeesho(product.url);
-      } else if (product.platform === 'myntra') {
-        scrapeRes = await scrapeMyntra(product.url);
-      } else if (product.platform === 'ajio') {
-        scrapeRes = await scrapeAjio(product.url);
-      } else if (product.platform === 'westside') {
-        scrapeRes = await scrapeWestside(product.url);
-      } else {
-        console.warn(`Unsupported platform ${product.platform}`);
-        continue;
+    const MAX_ATTEMPTS = 2;
+    let scrapeRes: ScrapeResult | null = null;
+    let attemptsMade = 0;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      attemptsMade = attempt;
+      try {
+        if (product.platform === 'amazon') {
+          scrapeRes = await scrapeAmazon(product.url);
+        } else if (product.platform === 'flipkart') {
+          scrapeRes = await scrapeFlipkart(product.url);
+        } else if (product.platform === 'meesho') {
+          scrapeRes = await scrapeMeesho(product.url);
+        } else if (product.platform === 'myntra') {
+          scrapeRes = await scrapeMyntra(product.url);
+        } else if (product.platform === 'ajio') {
+          scrapeRes = await scrapeAjio(product.url);
+        } else if (product.platform === 'westside') {
+          scrapeRes = await scrapeWestside(product.url);
+        } else {
+          console.warn(`Unsupported platform ${product.platform}`);
+          break;
+        }
+      } catch (e: unknown) {
+        scrapeRes = { success: false, error: String(e) };
       }
-    } catch (e: unknown) {
-      scrapeRes = { success: false, error: String(e) };
+
+      if (scrapeRes && (scrapeRes.success || scrapeRes.isOutOfStock)) {
+        break;
+      }
+
+      if (attempt < MAX_ATTEMPTS) {
+        console.warn(`  🔄 Attempt ${attempt} failed: ${scrapeRes?.error || 'Unknown error'}. Retrying (${attempt + 1}/${MAX_ATTEMPTS})...`);
+        await delay(3000);
+      }
     }
 
     // Handle out of stock detection
-    if (scrapeRes.isOutOfStock) {
+    if (scrapeRes && scrapeRes.isOutOfStock) {
       console.log(`  📦 Product is currently Out of Stock: "${product.title.slice(0, 30)}"`);
       await supabase
         .from('products')
@@ -152,17 +187,29 @@ async function main() {
       continue;
     }
 
-    if (!scrapeRes.success || !scrapeRes.price || scrapeRes.price <= 0) {
+    if (!scrapeRes || !scrapeRes.success || !scrapeRes.price || scrapeRes.price <= 0) {
       errorCount++;
-      console.warn(`⚠️ Scraping failed for "${product.title.slice(0, 30)}": ${scrapeRes.error}`);
+      const errorMessage = scrapeRes?.error || 'Failed to extract price after 2 attempts';
+      console.warn(`⚠️ Scraping failed for "${product.title.slice(0, 30)}": ${errorMessage}`);
       await supabase
         .from('products')
         .update({
           check_status: 'error',
-          error_message: scrapeRes.error || 'Failed to extract price',
+          error_message: errorMessage,
           last_checked_at: new Date().toISOString(),
         })
         .eq('id', product.id);
+
+      // Dispatch failure email alert to user
+      console.log(`  📧 Dispatching scraper failure alert to rahulr24g@gmail.com...`);
+      await sendScraperFailureAlert({
+        productTitle: product.title,
+        productUrl: product.url,
+        platform: product.platform,
+        error: errorMessage,
+        retryAttempts: attemptsMade,
+        to: 'rahulr24g@gmail.com',
+      });
 
       await delay(2000);
       continue;
@@ -173,15 +220,26 @@ async function main() {
     // Security & sanity check on scraped price
     const sanity = validateScrapedPrice(newPrice, product.current_price);
     if (!sanity.isValid) {
-      console.warn(`🛑 Sanity check failed for ${product.id}: ${sanity.reason}`);
+      const sanityReason = `Sanity check: ${sanity.reason}`;
+      console.warn(`🛑 Sanity check failed for ${product.id}: ${sanityReason}`);
       await supabase
         .from('products')
         .update({
           check_status: 'error',
-          error_message: `Sanity check: ${sanity.reason}`,
+          error_message: sanityReason,
           last_checked_at: new Date().toISOString(),
         })
         .eq('id', product.id);
+
+      // Dispatch failure email alert for sanity check violation
+      await sendScraperFailureAlert({
+        productTitle: product.title,
+        productUrl: product.url,
+        platform: product.platform,
+        error: sanityReason,
+        retryAttempts: attemptsMade,
+        to: 'rahulr24g@gmail.com',
+      });
       continue;
     }
 

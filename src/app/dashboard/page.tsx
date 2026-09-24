@@ -15,6 +15,9 @@ import {
   Crown,
   KeyRound,
   Users,
+  Zap,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import { Product, Platform } from '@/types';
 import { ProductCard } from '@/components/product-card';
@@ -32,6 +35,10 @@ export default function DashboardPage() {
   const [onlyAllTimeLow, setOnlyAllTimeLow] = useState(false);
   const [sortBy, setSortBy] = useState<'recent' | 'discount' | 'price_asc'>('recent');
   const [creatorFilter, setCreatorFilter] = useState<'all' | 'mine' | 'partner'>('all');
+
+  // Manual scraper trigger & liveness watchdog states
+  const [isTriggeringScraper, setIsTriggeringScraper] = useState(false);
+  const [triggerStatus, setTriggerStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const fetchProducts = async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -110,6 +117,50 @@ export default function DashboardPage() {
   const otherCount = useMemo(() => {
     return products.filter((p) => !isMineProduct(p)).length;
   }, [products, user]);
+
+  // Watchdog metric: time since last scrape across all products
+  const latestScrapeTime = useMemo(() => {
+    const timestamps = products
+      .map((p) => (p.last_checked_at ? new Date(p.last_checked_at).getTime() : 0))
+      .filter((t) => t > 0);
+    return timestamps.length > 0 ? Math.max(...timestamps) : null;
+  }, [products]);
+
+  const elapsedHours = useMemo(() => {
+    if (!latestScrapeTime) return null;
+    return (Date.now() - latestScrapeTime) / (1000 * 60 * 60);
+  }, [latestScrapeTime]);
+
+  const isScraperStale = Boolean(elapsedHours !== null && elapsedHours >= 3.0);
+
+  const handleManualScrapeTrigger = async () => {
+    if (isTriggeringScraper) return;
+    setIsTriggeringScraper(true);
+    setTriggerStatus(null);
+    try {
+      const res = await fetch('/api/scraper/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTriggerStatus({
+          message: data.message || `Scrape completed! ${data.checkedCount || 0} products checked.`,
+          type: 'success',
+        });
+        await fetchProducts();
+      } else {
+        setTriggerStatus({
+          message: data.error || 'Failed to trigger scraper.',
+          type: 'error',
+        });
+      }
+    } catch {
+      setTriggerStatus({ message: 'Network error triggering scraper.', type: 'error' });
+    } finally {
+      setIsTriggeringScraper(false);
+    }
+  };
 
   const exportData = (format: 'csv' | 'json') => {
     if (products.length === 0) return;
@@ -203,6 +254,44 @@ export default function DashboardPage() {
                 <span className="text-[10px] bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
                   Shared Space
                 </span>
+                {/* Watchdog Liveness Badge */}
+                {latestScrapeTime && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${
+                      isScraperStale
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30 animate-pulse'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    }`}
+                    title={
+                      isScraperStale
+                        ? `Scraper has not checked products in ${elapsedHours?.toFixed(1)} hours (Threshold: 3h)`
+                        : `Last scrape was ${
+                            elapsedHours !== null
+                              ? elapsedHours < 1
+                                ? `${Math.round(elapsedHours * 60)}m ago`
+                                : `${elapsedHours.toFixed(1)}h ago`
+                              : ''
+                          }`
+                    }
+                  >
+                    {isScraperStale ? (
+                      <>
+                        <AlertTriangle className="w-3 h-3 text-red-400" />
+                        Scraper Idle ({elapsedHours?.toFixed(1)}h ago)
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="w-3 h-3 text-emerald-400" />
+                        Checked{' '}
+                        {elapsedHours !== null
+                          ? elapsedHours < 1
+                            ? `${Math.round(elapsedHours * 60)}m ago`
+                            : `${elapsedHours.toFixed(1)}h ago`
+                          : 'recently'}
+                      </>
+                    )}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
                 Unified joint watchlist: products and price drops across connected accounts are merged in this shared space.
@@ -210,38 +299,51 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Filter between Mine & Partner */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80 self-start sm:self-auto text-xs">
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            {/* Manual Scraper Trigger Button for Rahul */}
             <button
-              onClick={() => setCreatorFilter('all')}
-              className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                creatorFilter === 'all'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              onClick={handleManualScrapeTrigger}
+              disabled={isTriggeringScraper}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs transition-all shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
+              title="Manually trigger immediate price scrape across active products"
             >
-              All Items ({products.length})
+              <Zap className={`w-3.5 h-3.5 ${isTriggeringScraper ? 'animate-spin' : ''}`} />
+              <span>{isTriggeringScraper ? 'Checking Prices...' : 'Run Scraper Now'}</span>
             </button>
-            <button
-              onClick={() => setCreatorFilter('mine')}
-              className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                creatorFilter === 'mine'
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Mine ({myCount})
-            </button>
-            <button
-              onClick={() => setCreatorFilter('partner')}
-              className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                creatorFilter === 'partner'
-                  ? 'bg-pink-500 text-slate-950 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Others ({otherCount})
-            </button>
+
+            {/* Quick Filter between Mine & Others */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80 text-xs">
+              <button
+                onClick={() => setCreatorFilter('all')}
+                className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                  creatorFilter === 'all'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                All Items ({products.length})
+              </button>
+              <button
+                onClick={() => setCreatorFilter('mine')}
+                className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                  creatorFilter === 'mine'
+                    ? 'bg-emerald-500 text-slate-950 font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Mine ({myCount})
+              </button>
+              <button
+                onClick={() => setCreatorFilter('partner')}
+                className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                  creatorFilter === 'partner'
+                    ? 'bg-pink-500 text-slate-950 font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Others ({otherCount})
+              </button>
+            </div>
           </div>
         </div>
       ) : !user ? (
@@ -260,6 +362,48 @@ export default function DashboardPage() {
           </Link>
         </div>
       ) : null}
+
+      {/* Trigger feedback toast banner */}
+      {triggerStatus && (
+        <div
+          className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-3 animate-in fade-in duration-200 ${
+            triggerStatus.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-red-500/10 border-red-500/30 text-red-300'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 flex-shrink-0" />
+            <span>{triggerStatus.message}</span>
+          </div>
+          <button
+            onClick={() => setTriggerStatus(null)}
+            className="text-slate-400 hover:text-slate-200 text-xs px-2 py-0.5 rounded bg-slate-800"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Watchdog Stale Warning if scraping has not occurred for > 3 hours */}
+      {isScraperStale && (
+        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-bounce" />
+            <span>
+              <strong>Scraper Stoppage Warning:</strong> No price checks have been recorded for over{' '}
+              <strong>{elapsedHours?.toFixed(1)} hours</strong>.
+            </span>
+          </div>
+          <button
+            onClick={handleManualScrapeTrigger}
+            disabled={isTriggeringScraper}
+            className="px-3 py-1 rounded-lg bg-red-500 hover:bg-red-400 text-slate-950 font-bold text-xs whitespace-nowrap transition-colors self-start sm:self-auto cursor-pointer"
+          >
+            {isTriggeringScraper ? 'Running...' : 'Trigger Now'}
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col gap-3">

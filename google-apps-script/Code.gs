@@ -101,6 +101,10 @@ function doPost(e) {
         dropData.isAllTimeLow ? `🏆 ALL-TIME LOWEST PRICE RECORDED!` : ``,
         `Buy now: ${dropData.productUrl}`
       ].filter(Boolean).join('\n');
+    } else if (payload.type === 'scraper_failure') {
+      subject = subject || `⚠️ [Scraper Failure] ${(payload.platform || 'Ecommerce').toUpperCase()} - ${(payload.productTitle || 'Product').slice(0, 45)}`;
+    } else if (payload.type === 'scraper_stale') {
+      subject = subject || `🚨 [Watchdog Alert] Price Watcher has not scraped for ${payload.hoursSinceLastScrape || 3} hours!`;
     }
 
     if (!subject) {
