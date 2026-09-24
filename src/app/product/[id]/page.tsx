@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Activity,
   Calculator,
+  RefreshCw,
 } from 'lucide-react';
 import { Product, PriceHistoryItem } from '@/types';
 import { PlatformBadge } from '@/components/platform-badge';
@@ -34,6 +35,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [history, setHistory] = useState<PriceHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
+  const [isRechecking, setIsRechecking] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -115,6 +117,30 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setMessage({ type: 'error', text: msg });
+    }
+  };
+
+  const handleSingleRecheck = async () => {
+    if (!product || isRechecking) return;
+    setIsRechecking(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/scraper/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to recheck store price');
+      }
+      await fetchDetails();
+      setMessage({ type: 'success', text: 'Live store price checked and updated.' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMessage({ type: 'error', text: msg });
+    } finally {
+      setIsRechecking(false);
     }
   };
 
@@ -362,6 +388,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                     <span>Resume Tracking</span>
                   </>
                 )}
+              </button>
+
+              <button
+                onClick={handleSingleRecheck}
+                disabled={isRechecking}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-champagne px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap disabled:opacity-50"
+                title="Scrape and update live price immediately from store"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-gold ${isRechecking ? 'animate-spin' : ''}`} />
+                <span>{isRechecking ? 'Checking Store...' : 'Recheck Store Price'}</span>
               </button>
 
               <button

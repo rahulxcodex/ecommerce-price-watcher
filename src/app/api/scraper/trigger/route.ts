@@ -27,30 +27,42 @@ function getDbClient() {
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   try {
-    // 1. Verify user session: strictly restricted to rahulr24g@gmail.com / combined account
-    const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
-    const session = verifySessionToken(token || '');
-
-    const isAuthorized =
-      Boolean(session?.isCombined) ||
-      session?.email?.toLowerCase().trim() === 'rahulr24g@gmail.com';
-
-    if (!session || !isAuthorized) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Forbidden: Manual scraper trigger is exclusively available to authorized account (rahulr24g@gmail.com).',
-        },
-        { status: 403 }
-      );
-    }
-
     const db = getDbClient();
     let body: { productId?: string; limit?: number } = {};
     try {
       body = await req.json();
     } catch {
       // Body is optional
+    }
+
+    // 1. Verify user session:
+    // Single product refresh is permitted for any authenticated session.
+    // Full batch scraper trigger is restricted strictly to rahulr24g@gmail.com / combined account.
+    const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const session = verifySessionToken(token || '');
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized: Please log in to refresh prices.',
+        },
+        { status: 401 }
+      );
+    }
+
+    const isAuthorized =
+      Boolean(session?.isCombined) ||
+      session?.email?.toLowerCase().trim() === 'rahulr24g@gmail.com';
+
+    if (!body.productId && !isAuthorized) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Forbidden: Manual batch scraper trigger is exclusively available to authorized account (rahulr24g@gmail.com).',
+        },
+        { status: 403 }
+      );
     }
 
     // 2. Fetch active products

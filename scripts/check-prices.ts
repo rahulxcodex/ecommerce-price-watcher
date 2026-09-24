@@ -126,14 +126,51 @@ async function main() {
 
   console.log(`📋 Found ${products.length} active products to check.`);
 
+  /**
+   * Round-robin interleaves products by platform so the scraper never hits the same
+   * storefront repeatedly in succession.
+   */
+  function interleaveProductsByPlatform(productList: Product[]): Product[] {
+    const byPlatform = new Map<string, Product[]>();
+    for (const p of productList) {
+      const list = byPlatform.get(p.platform) || [];
+      list.push(p);
+      byPlatform.set(p.platform, list);
+    }
+    const interleaved: Product[] = [];
+    let added = true;
+    while (added) {
+      added = false;
+      for (const [, items] of byPlatform) {
+        if (items.length > 0) {
+          interleaved.push(items.shift()!);
+          added = true;
+        }
+      }
+    }
+    return interleaved;
+  }
+
+  const scheduledProducts = interleaveProductsByPlatform(products);
   let checkedCount = 0;
   let priceDropCount = 0;
   let errorCount = 0;
+  let lastPlatform: string | null = null;
 
-  // 4. Process products with domain-aware pacing
-  for (const product of products) {
+  // 4. Process products with domain-aware pacing and round-robin scheduling
+  for (const product of scheduledProducts) {
     checkedCount++;
-    console.log(`\n[${checkedCount}/${products.length}] Checking: ${product.title.slice(0, 40)}... (${product.platform})`);
+    console.log(`\n[${checkedCount}/${scheduledProducts.length}] Checking: ${product.title.slice(0, 40)}... (${product.platform})`);
+
+    // Domain-aware pacing with randomized jitter
+    if (lastPlatform) {
+      const isSamePlatform = lastPlatform === product.platform;
+      const waitMs = isSamePlatform
+        ? 3500 + Math.floor(Math.random() * 3000) // 3.5s - 6.5s spacing between same storefront
+        : 1500 + Math.floor(Math.random() * 1500); // 1.5s - 3s spacing between different storefronts
+      await delay(waitMs);
+    }
+    lastPlatform = product.platform;
 
     const MAX_ATTEMPTS = 2;
     let scrapeRes: ScrapeResult | null = null;

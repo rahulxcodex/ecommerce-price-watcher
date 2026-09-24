@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { DiscoveryResult } from '@/types';
-import { getDefaultHeaders, parsePrice } from '../utils';
+import { getDefaultHeaders, getMobileHeaders, parsePrice } from '../utils';
 import { calculateDiscount, cleanText, generateDiscoveryId } from './search-utils';
 
 export async function searchAmazon(query: string, limit: number = 15): Promise<DiscoveryResult[]> {
@@ -10,7 +10,8 @@ export async function searchAmazon(query: string, limit: number = 15): Promise<D
   const searchUrl = `https://www.amazon.in/s?k=${encodeURIComponent(cleanQ)}`;
 
   try {
-    const res = await fetch(searchUrl, {
+    let html = '';
+    let res = await fetch(searchUrl, {
       headers: {
         ...getDefaultHeaders(),
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -19,24 +20,40 @@ export async function searchAmazon(query: string, limit: number = 15): Promise<D
       next: { revalidate: 3600 },
     });
 
-    if (!res.ok) {
-      console.warn(`Amazon search returned status ${res.status}`);
-      return [];
+    if (res.ok) {
+      html = await res.text();
     }
 
-    const html = await res.text();
-    const $ = cheerio.load(html);
+    let $ = cheerio.load(html);
+    let titleText = $('title').text().toLowerCase();
 
-    // Check for CAPTCHA
-    const titleText = $('title').text().toLowerCase();
-    if (titleText.includes('robot check') || titleText.includes('captcha')) {
-      console.warn('Amazon bot verification triggered on search');
-      return [];
+    // Check for CAPTCHA or failed initial response -> fallback to mobile search
+    if (!res.ok || titleText.includes('robot check') || titleText.includes('captcha') || html.includes('bm-verify=')) {
+      console.warn('Amazon desktop search triggered verification, falling back to mobile...');
+      const mobileRes = await fetch(searchUrl, {
+        headers: {
+          ...getMobileHeaders(),
+          'Referer': 'https://www.amazon.in/',
+          'Sec-CH-UA-Mobile': '?1',
+        },
+      });
+
+      if (mobileRes.ok) {
+        html = await mobileRes.text();
+        $ = cheerio.load(html);
+        titleText = $('title').text().toLowerCase();
+        if (titleText.includes('robot check') || titleText.includes('captcha')) {
+          console.warn('Amazon bot verification triggered on mobile search too.');
+          return [];
+        }
+      } else {
+        return [];
+      }
     }
 
     const results: DiscoveryResult[] = [];
 
-    $('div[data-component-type="s-search-result"]').each((_, el) => {
+    $('div[data-component-type="s-search-result"], div[data-asin]').each((_, el) => {
       if (results.length >= limit) return;
       const $card = $(el);
       const asin = $card.attr('data-asin');
