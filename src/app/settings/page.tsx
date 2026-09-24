@@ -19,6 +19,7 @@ import {
   Sparkles,
   Download,
   Info,
+  RotateCcw,
 } from 'lucide-react';
 import { AppSettings } from '@/types';
 
@@ -173,8 +174,8 @@ export default function SettingsPage() {
     setIsPushLoading(true);
     setStatusMessage(null);
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
+      await navigator.serviceWorker.register('/sw.js');
+      const reg = await navigator.serviceWorker.ready;
 
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
@@ -190,12 +191,40 @@ export default function SettingsPage() {
         'BJeWpGbW6kkqoVzplUPqE-4NClupkqYD0xM8v7V-pNo84btMzAllrq1r7uIttyv7p1O6ghne_eSCSHvMUu7Qsx8';
       const convertedVapidKey = urlBase64ToUint8Array(vapidKey);
 
-      let subscription = await reg.pushManager.getSubscription();
-      if (!subscription) {
-        subscription = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: convertedVapidKey,
-        });
+      let subscription: PushSubscription | null = null;
+      try {
+        subscription = await reg.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedVapidKey,
+          });
+        }
+      } catch (subErr: any) {
+        console.warn('Initial push subscription failed, attempting reset:', subErr);
+        // Clear stale subscription and re-subscribe
+        try {
+          const stale = await reg.pushManager.getSubscription();
+          if (stale) await stale.unsubscribe();
+          subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedVapidKey,
+          });
+        } catch (retryErr: any) {
+          const rawErr = retryErr?.message || String(retryErr);
+          if (rawErr.includes('push service error') || rawErr.includes('Registration failed')) {
+            const isBrave = typeof (navigator as any).brave !== 'undefined';
+            if (isBrave) {
+              throw new Error(
+                'Registration failed (Brave Push Messaging Disabled). Brave blocks Google push messaging by default. To fix: Open brave://settings/privacy -> turn ON "Use Google services for push messaging" -> relaunch Brave and click Enable.'
+              );
+            }
+            throw new Error(
+              'Registration failed (push service unreachable). Your browser could not connect to Google Cloud Messaging (FCM). If using Brave, enable "Use Google services for push messaging" in brave://settings/privacy. If using a VPN, Pi-hole, or ad-blocker, verify mtalk.google.com and fcm.googleapis.com are not blocked.'
+            );
+          }
+          throw retryErr;
+        }
       }
 
       if (!subscription) {
@@ -209,7 +238,10 @@ export default function SettingsPage() {
         body: JSON.stringify({ subscription }),
       });
 
-      if (!res.ok) throw new Error('Failed to save push subscription on server.');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to save push subscription on server.');
+      }
 
       setPushStatus('enabled');
       setStatusMessage({
@@ -219,6 +251,33 @@ export default function SettingsPage() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setStatusMessage({ type: 'error', text: msg });
+    } finally {
+      setIsPushLoading(false);
+    }
+  };
+
+  const handleResetPush = async () => {
+    setIsPushLoading(true);
+    setStatusMessage(null);
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          try {
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) await sub.unsubscribe();
+          } catch {}
+          await reg.unregister();
+        }
+      }
+      setPushStatus('default');
+      setStatusMessage({
+        type: 'info',
+        text: 'Service worker and push registrations cleared. Now click "Enable on this Device" to reconnect cleanly.',
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatusMessage({ type: 'error', text: `Reset failed: ${msg}` });
     } finally {
       setIsPushLoading(false);
     }
@@ -379,6 +438,16 @@ export default function SettingsPage() {
 
             <button
               type="button"
+              onClick={handleResetPush}
+              disabled={isPushLoading}
+              title="Reset service worker & push cache"
+              className="p-2.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800 hover:text-slate-200 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
               onClick={handleEnableWebPush}
               disabled={isPushLoading}
               title={pushStatus === 'enabled' ? 'Click to re-sync push registration with server' : 'Enable Web Push'}
@@ -399,6 +468,30 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
+        {/* Diagnostic Guide for Push Service Errors / Brave Browser */}
+        {statusMessage && statusMessage.type === 'error' && (statusMessage.text.includes('push service') || statusMessage.text.includes('Brave')) && (
+          <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4 text-xs text-sky-300 space-y-2.5">
+            <div className="font-semibold flex items-center gap-1.5 text-sky-200">
+              <Info className="w-4 h-4 flex-shrink-0 text-sky-400" />
+              <span>How to Fix &quot;Registration failed - push service error&quot;:</span>
+            </div>
+            <div className="space-y-1.5 text-[11px] text-slate-300 leading-relaxed">
+              <p className="font-medium text-sky-200">1. If you are using Brave Browser:</p>
+              <p className="pl-3 text-slate-300">
+                Brave blocks Google FCM push by default. In Brave, go to <code className="bg-slate-950 px-1.5 py-0.5 rounded text-sky-300 border border-slate-800">brave://settings/privacy</code> → toggle ON <strong>&quot;Use Google services for push messaging&quot;</strong> → restart Brave.
+              </p>
+              <p className="font-medium text-sky-200">2. Ad-blockers or Network Restrictions:</p>
+              <p className="pl-3 text-slate-300">
+                Ensure your network or extension is not blocking <code className="bg-slate-950 px-1.5 py-0.5 rounded text-sky-300 border border-slate-800">mtalk.google.com</code> or <code className="bg-slate-950 px-1.5 py-0.5 rounded text-sky-300 border border-slate-800">fcm.googleapis.com</code>.
+              </p>
+              <p className="font-medium text-sky-200">3. Clear Stale Registration:</p>
+              <p className="pl-3 text-slate-300">
+                Click the reset icon (<RotateCcw className="w-3 h-3 inline text-slate-400" />) beside the button to clear cached browser push tokens, then click <em>Enable on this Device</em> again.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Diagnostic Guide when Notification Permission is Blocked */}
         {pushStatus === 'blocked' && (
