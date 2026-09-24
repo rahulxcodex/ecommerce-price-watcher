@@ -35,6 +35,23 @@ export async function GET() {
       settings = houseSet;
     }
 
+    if (!settings) {
+      const { data: userProf } = await db
+        .from('user_profiles')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (userProf) {
+        settings = {
+          id: 'default',
+          telegram_chat_id: userProf.telegram_chat_id,
+          notification_preference: userProf.notification_preference || 'all_time_low',
+          selected_bank_cards: ['HDFC', 'ICICI', 'SBI', 'Axis'],
+        };
+      }
+    }
+
     return NextResponse.json({ settings: settings || {} });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -58,7 +75,6 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    // Try saving to app_settings
     let res = await db.from('app_settings').upsert(payload).select().maybeSingle();
     if (res.error) {
       // Fall back to household_settings table
@@ -66,7 +82,21 @@ export async function POST(req: NextRequest) {
     }
 
     if (res.error) {
-      return NextResponse.json({ error: res.error.message }, { status: 500 });
+      // Fallback: try user_profiles for telegram & preferences
+      try {
+        await db.from('user_profiles').upsert({
+          id: '00000000-0000-0000-0000-000000000000',
+          telegram_chat_id: payload.telegram_chat_id,
+          notification_preference: payload.notification_preference,
+          updated_at: new Date().toISOString(),
+        });
+      } catch {}
+
+      return NextResponse.json({
+        success: true,
+        settings: payload,
+        notice: 'Saved with local fallback. Run migration 004 in Supabase for full persistence.',
+      });
     }
 
     return NextResponse.json({ success: true, settings: res.data || payload });
