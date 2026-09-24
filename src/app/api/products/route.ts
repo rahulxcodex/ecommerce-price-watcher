@@ -233,7 +233,16 @@ export async function POST(req: NextRequest) {
             return corsResponse(
               {
                 error:
-                  'Database Setup Notice: Please run "supabase/migrations/002_allow_anonymous_products.sql" in your Supabase SQL Editor.',
+                  'Database Setup Notice: Please run "supabase/RUN_ALL_PENDING_MIGRATIONS.sql" in your Supabase SQL Editor.',
+                details: retryError.message,
+              },
+              { status: 500 }
+            );
+          } else if (retryError.message.includes('platform_type')) {
+            return corsResponse(
+              {
+                error:
+                  `Database Migration Required: Your Supabase database is missing support for ${platform.toUpperCase()}. Please run the script in "supabase/RUN_ALL_PENDING_MIGRATIONS.sql" in your Supabase SQL Editor to enable all stores.`,
                 details: retryError.message,
               },
               { status: 500 }
@@ -249,7 +258,16 @@ export async function POST(req: NextRequest) {
         return corsResponse(
           {
             error:
-              'Database Setup Notice: Please run the SQL in "supabase/migrations/002_allow_anonymous_products.sql" in your Supabase SQL Editor to enable public tracking.',
+              'Database Setup Notice: Please run the SQL in "supabase/RUN_ALL_PENDING_MIGRATIONS.sql" in your Supabase SQL Editor to allow public tracking without auth.',
+            details: insertError.message,
+          },
+          { status: 500 }
+        );
+      } else if (insertError.message.includes('platform_type')) {
+        return corsResponse(
+          {
+            error:
+              `Database Migration Required: Your Supabase database is missing support for ${platform.toUpperCase()}. Please run the script in "supabase/RUN_ALL_PENDING_MIGRATIONS.sql" in your Supabase SQL Editor to enable all stores and features.`,
             details: insertError.message,
           },
           { status: 500 }
