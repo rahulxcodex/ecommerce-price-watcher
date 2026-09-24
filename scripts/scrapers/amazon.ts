@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { getDefaultHeaders, getMobileHeaders, parsePrice, isPlaywrightAvailable, delay } from './utils';
+import { getDefaultHeaders, getMobileHeaders, parsePrice, isPlaywrightAvailable, delay, withSharedBrowserPage } from './utils';
 import { ScrapeResult } from '../../src/types';
 import { extractJsonLdProduct, extractMetaTags } from './resilient-extractor';
 
@@ -273,41 +273,28 @@ export async function scrapeAmazon(rawUrl: string): Promise<ScrapeResult> {
   // TIER 3: Playwright Headless Browser Fallback
   // ==========================================
   if (isPlaywrightAvailable()) {
-    let browser;
     try {
-      const { chromium } = await import('playwright');
-      browser = await chromium.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-blink-features=AutomationControlled',
-        ],
-      });
+      const parsed = await withSharedBrowserPage(
+        async (page) => {
+          await page.goto(canonicalUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
 
-      const context = await browser.newContext({
-        userAgent:
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        viewport: { width: 1280, height: 800 },
-        locale: 'en-IN',
-        timezoneId: 'Asia/Kolkata',
-      });
+          // Wait up to 8s for standard price selectors
+          await page
+            .waitForSelector(
+              'span.priceToPay .a-offscreen, span.apexPriceToPay .a-offscreen, #corePriceDisplay_desktop_feature_div, #corePriceDisplay_mobile_feature_div, .a-price .a-offscreen',
+              { timeout: 8000 }
+            )
+            .catch(() => null);
 
-      const page = await context.newPage();
-      await page.goto(canonicalUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
-
-      // Wait up to 8s for standard price selectors
-      await page
-        .waitForSelector(
-          'span.priceToPay .a-offscreen, span.apexPriceToPay .a-offscreen, #corePriceDisplay_desktop_feature_div, #corePriceDisplay_mobile_feature_div, .a-price .a-offscreen',
-          { timeout: 8000 }
-        )
-        .catch(() => null);
-
-      const html = await page.content();
-      const parsed = parseAmazonHtml(html, false);
-
-      await browser.close();
+          const html = await page.content();
+          return parseAmazonHtml(html, false);
+        },
+        {
+          userAgent:
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          viewport: { width: 1280, height: 800 },
+        }
+      );
 
       if (parsed.price !== undefined || parsed.isOutOfStock) {
         return {
@@ -322,7 +309,6 @@ export async function scrapeAmazon(rawUrl: string): Promise<ScrapeResult> {
         };
       }
     } catch (browserErr) {
-      if (browser) await browser.close().catch(() => null);
       console.warn('Amazon Tier 3 (Playwright) failed:', browserErr);
     }
   }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
 import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
-import { checkSearchRateLimit } from '@/lib/security';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { searchPlatform, sanitizeSearchQuery } from '@scripts/scrapers/search';
 import { rankFilterFacets } from '@/lib/dsa';
 import { Platform, SmartFilterFacets } from '@/types';
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
     const rateLimitKey = session?.userId || session?.name || clientIp;
 
-    const rateLimitResult = checkSearchRateLimit(rateLimitKey, 5, 60_000);
+    const rateLimitResult = await checkRateLimit(`search:${rateLimitKey}`, 5, 60);
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         {

@@ -24,11 +24,14 @@ export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 // Secret key for HMAC signing session tokens
 function getAuthSecret(): string {
-  return (
-    process.env.AUTH_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    'pricewatcher-secure-session-salt-default-key-32b'
-  );
+  const secret = process.env.AUTH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) {
+    throw new Error(
+      'Critical Security Exception: Neither AUTH_SECRET nor SUPABASE_SERVICE_ROLE_KEY is set. ' +
+      'Cannot sign or verify session tokens without a securely configured secret key.'
+    );
+  }
+  return secret;
 }
 
 export const COMBINED_ACCESS_EMAIL = 'rahulr24g@gmail.com';
@@ -42,6 +45,21 @@ export function isCombinedAccount(nameOrEmail?: string, email?: string): boolean
   const candidateEmail = email || (nameOrEmail && nameOrEmail.includes('@') ? nameOrEmail : undefined);
   if (!candidateEmail) return false;
   return candidateEmail.trim().toLowerCase() === COMBINED_ACCESS_EMAIL;
+}
+
+/**
+ * Unified resolver for user role and combined access status.
+ * Single source of truth across auth.ts, auth-db.ts, and session routes to prevent drift.
+ */
+export function resolveUserRole(nameOrEmail?: string, email?: string): {
+  isCombined: boolean;
+  role: 'combined' | 'user';
+} {
+  const isCombined = isCombinedAccount(nameOrEmail, email);
+  return {
+    isCombined,
+    role: isCombined ? 'combined' : 'user',
+  };
 }
 
 /**
@@ -129,10 +147,10 @@ export function verifySessionToken(token: string): SessionPayload | null {
       return null; // Expired
     }
 
-    // Enforce strict Combined Access authorization dynamically
-    const isCombined = isCombinedAccount(payload.name, payload.email);
-    payload.isCombined = isCombined;
-    payload.role = isCombined ? 'combined' : 'user';
+    // Enforce strict Combined Access authorization dynamically via unified resolver
+    const resolved = resolveUserRole(payload.name, payload.email);
+    payload.isCombined = resolved.isCombined;
+    payload.role = resolved.role;
 
     return payload;
   } catch {

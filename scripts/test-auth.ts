@@ -1,8 +1,12 @@
+// Ensure test environment has a secret configured
+process.env.AUTH_SECRET = process.env.AUTH_SECRET || 'test-auth-secret-key-32-chars-long-minimum';
+
 import {
   hashPin,
   verifyPin,
   generateSalt,
   isCombinedAccount,
+  resolveUserRole,
   createSessionToken,
   verifySessionToken,
 } from '../src/lib/auth';

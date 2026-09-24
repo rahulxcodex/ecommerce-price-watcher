@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
 import { validateAndSanitizeUrl, validateScrapedPrice, deriveTitleFromUrl } from '@/lib/security';
 import { scrapeAmazon } from '@scripts/scrapers/amazon';
@@ -11,22 +12,110 @@ import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function OPTIONS() {
+function getAllowedOrigin(origin: string | null, host: string | null): string | null {
+  if (!origin) return null;
+
+  // 1. Chrome extension origins
+  if (origin.startsWith('chrome-extension://')) {
+    return origin;
+  }
+
+  // 2. Same-origin match against Host header
+  if (host) {
+    try {
+      const parsedOrigin = new URL(origin);
+      if (parsedOrigin.host === host) {
+        return origin;
+      }
+    } catch {}
+  }
+
+  // 3. Localhost / local IP for development & tests
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    return origin;
+  }
+
+  // 4. Configured App URL
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) {
+    try {
+      const parsedApp = new URL(appUrl);
+      if (parsedApp.origin === origin) {
+        return origin;
+      }
+    } catch {}
+  }
+
+  // 5. Vercel deployment URL
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl && origin === `https://${vercelUrl}`) {
+    return origin;
+  }
+
+  return null;
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get('origin');
+  const host = req.headers.get('host');
+  const allowedOrigin = getAllowedOrigin(origin, host);
+
+  if (origin && !allowedOrigin) {
+    return new NextResponse(null, { status: 403 });
+  }
+
+  const responseHeaders: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Vary': 'Origin',
+  };
+
+  if (allowedOrigin) {
+    responseHeaders['Access-Control-Allow-Origin'] = allowedOrigin;
+    responseHeaders['Access-Control-Allow-Credentials'] = 'true';
+  }
+
   return new NextResponse(null, {
     status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
+    headers: responseHeaders,
   });
 }
 
-function corsResponse(body: unknown, init?: ResponseInit) {
+function corsResponse(body: unknown, init?: ResponseInit, req?: NextRequest) {
+  let origin: string | null = null;
+  let host: string | null = null;
+
+  if (req) {
+    origin = req.headers.get('origin');
+    host = req.headers.get('host');
+  } else {
+    try {
+      const h = headers();
+      origin = h.get('origin');
+      host = h.get('host');
+    } catch {}
+  }
+
+  // Block unauthorized cross-origin requests
+  if (origin) {
+    const allowed = getAllowedOrigin(origin, host);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Cross-origin request blocked by CORS security policy.' },
+        { status: 403 }
+      );
+    }
+  }
+
   const res = NextResponse.json(body, init);
-  res.headers.set('Access-Control-Allow-Origin', '*');
+  const allowedOrigin = getAllowedOrigin(origin, host);
+  if (allowedOrigin) {
+    res.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+    res.headers.set('Access-Control-Allow-Credentials', 'true');
+  }
   res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.headers.set('Vary', 'Origin');
   return res;
 }
 

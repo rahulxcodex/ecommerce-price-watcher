@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { getDefaultHeaders, parsePrice, isPlaywrightAvailable, getMobileHeaders } from './utils';
+import { getDefaultHeaders, parsePrice, isPlaywrightAvailable, getMobileHeaders, withSharedBrowserPage } from './utils';
 import { ScrapeResult } from '../../src/types';
 import { extractMetaTags } from './resilient-extractor';
 
@@ -110,42 +110,38 @@ export async function scrapeFlipkart(url: string): Promise<ScrapeResult> {
     };
   }
 
-  let browser;
   try {
-    const { chromium } = await import('playwright');
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-      viewport: { width: 1280, height: 800 },
-    });
+    return await withSharedBrowserPage(
+      async (page) => {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
 
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+        // Wait for price container
+        await page.waitForSelector('div.Nx9bqj, div._30jeq3, span.B_NuCI, span.VU-ZEz', { timeout: 10000 }).catch(() => null);
 
-    // Wait for price container
-    await page.waitForSelector('div.Nx9bqj, div._30jeq3, span.B_NuCI, span.VU-ZEz', { timeout: 10000 }).catch(() => null);
+        const priceText = await page.locator('div.Nx9bqj.CxhGGd, div._30jeq3._16Jk6d, div.Nx9bqj, div._30jeq3').first().textContent().catch(() => null);
+        const titleText = await page.locator('span.B_NuCI, span.VU-ZEz, h1').first().textContent().catch(() => 'Flipkart Product');
+        const imageSrc = await page.locator('img._396cs4, img.DByuf4').first().getAttribute('src').catch(() => null);
 
-    const priceText = await page.locator('div.Nx9bqj.CxhGGd, div._30jeq3._16Jk6d, div.Nx9bqj, div._30jeq3').first().textContent().catch(() => null);
-    const titleText = await page.locator('span.B_NuCI, span.VU-ZEz, h1').first().textContent().catch(() => 'Flipkart Product');
-    const imageSrc = await page.locator('img._396cs4, img.DByuf4').first().getAttribute('src').catch(() => null);
+        const price = priceText ? parsePrice(priceText) : null;
+        if (!price || price <= 0) {
+          return { success: false, error: 'Could not extract Flipkart price with Playwright.' };
+        }
 
-    const price = priceText ? parsePrice(priceText) : null;
-    if (!price || price <= 0) {
-      return { success: false, error: 'Could not extract Flipkart price with Playwright.' };
-    }
-
-    return {
-      success: true,
-      title: titleText?.trim() || 'Flipkart Product',
-      price,
-      imageUrl: imageSrc || undefined,
-      currency: 'INR',
-    };
+        return {
+          success: true,
+          title: titleText?.trim() || 'Flipkart Product',
+          price,
+          imageUrl: imageSrc || undefined,
+          currency: 'INR',
+        };
+      },
+      {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        viewport: { width: 1280, height: 800 },
+      }
+    );
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
     return { success: false, error: `Flipkart Playwright failed: ${errorMsg}` };
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => null);
-    }
   }
 }

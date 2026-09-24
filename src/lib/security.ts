@@ -203,6 +203,7 @@ export function safeCompare(a: string, b: string): boolean {
 
 /**
  * Extracts a clean, human-readable product title from a store URL slug.
+ * Resilient against query parameters, diverse path schemas across Amazon, Flipkart, Meesho, Myntra, Ajio, and Westside.
  */
 export function deriveTitleFromUrl(rawUrl: string, platform?: string): string {
   if (!rawUrl || typeof rawUrl !== 'string') return '';
@@ -211,10 +212,23 @@ export function deriveTitleFromUrl(rawUrl: string, platform?: string): string {
     const path = parsed.pathname;
     let slug = '';
 
-    if (platform === 'ajio' || path.includes('/p/')) {
-      const match = path.match(/\/([^/]+)\/p\//);
+    // Standardize platform lookup
+    const plat = (platform || '').toLowerCase();
+
+    if (plat === 'ajio' || path.includes('/p/')) {
+      // Ajio: /brand-product-title/p/4612345_blue
+      const match = path.match(/\/([^/]+)\/p\//i);
       if (match) slug = match[1];
-    } else if (platform === 'myntra' || path.includes('/buy')) {
+    }
+
+    if (!slug && (plat === 'meesho' || parsed.hostname.includes('meesho'))) {
+      // Meesho: /product-title-slug/p/1abcde
+      const match = path.match(/\/([^/]+)\/p\//i);
+      if (match) slug = match[1];
+    }
+
+    if (!slug && (plat === 'myntra' || path.includes('/buy'))) {
+      // Myntra: /category/brand/product-title/12345/buy
       const segments = path.split('/').filter(Boolean);
       const buyIdx = segments.indexOf('buy');
       if (buyIdx >= 2) {
@@ -222,26 +236,68 @@ export function deriveTitleFromUrl(rawUrl: string, platform?: string): string {
       } else if (segments.length >= 2) {
         slug = segments[segments.length - 2];
       }
-    } else if (platform === 'westside' || path.includes('/products/')) {
-      const match = path.match(/\/products\/([^/?#]+)/);
-      if (match) slug = match[1];
-    } else if (platform === 'flipkart') {
-      const segments = path.split('/').filter(Boolean);
-      if (segments.length > 0 && segments[0] !== 'p') {
-        slug = segments[0];
-      }
-    } else if (platform === 'amazon') {
-      const match = path.match(/\/([^/]+)\/dp\//);
+    }
+
+    if (!slug && (plat === 'westside' || path.includes('/products/'))) {
+      // Westside: /products/eta-teal-resort-fit-shirt-300965000
+      const match = path.match(/\/products\/([^/?#]+)/i);
       if (match) slug = match[1];
     }
 
+    if (!slug && (plat === 'flipkart' || parsed.hostname.includes('flipkart'))) {
+      // Flipkart: /product-title-slug/p/itm... or /product-title-slug/...
+      const match = path.match(/\/([^/]+)\/p\//i);
+      if (match) {
+        slug = match[1];
+      } else {
+        const segments = path.split('/').filter(Boolean);
+        if (segments.length > 0 && segments[0] !== 'p') {
+          slug = segments[0];
+        }
+      }
+    }
+
+    if (!slug && (plat === 'amazon' || parsed.hostname.includes('amazon'))) {
+      // Amazon: /Product-Title-Slug/dp/B0..., /gp/product/..., /d/B0...
+      const dpMatch = path.match(/\/([^/]+)\/dp\//i);
+      if (dpMatch && dpMatch[1] && !['gp', 'd', 'product'].includes(dpMatch[1].toLowerCase())) {
+        slug = dpMatch[1];
+      } else {
+        const altMatch = path.match(/\/([^/]+)\/(?:gp\/product|d)\//i);
+        if (altMatch) slug = altMatch[1];
+      }
+    }
+
+    // Universal heuristic fallback: find the most descriptive path segment
+    if (!slug) {
+      const ignoredSegments = new Set([
+        'p', 'dp', 'gp', 'product', 'products', 'buy', 'item', 'itm',
+        'details', 'index', 'view', 's', 'shop', 'en'
+      ]);
+      const segments = path.split('/').filter(Boolean);
+      const candidates = segments.filter(
+        (seg) => !ignoredSegments.has(seg.toLowerCase()) && !/^[0-9a-f]{10,}$/i.test(seg) && seg.length > 3
+      );
+      if (candidates.length > 0) {
+        // Pick the longest descriptive candidate segment
+        slug = candidates.reduce((a, b) => (a.length >= b.length ? a : b));
+      }
+    }
+
     if (slug) {
-      return decodeURIComponent(slug)
+      // Strip numeric product ID suffixes often attached with hyphens (e.g. "product-name-1234567")
+      const cleanedSlug = slug.replace(/-\d{6,}$/, '');
+      return decodeURIComponent(cleanedSlug)
         .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
         .replace(/\b\w/g, (c) => c.toUpperCase())
         .trim();
     }
-  } catch {}
+
+    console.debug(`[deriveTitleFromUrl] Unable to derive title from URL: "${rawUrl}", platform: "${platform}"`);
+  } catch (err) {
+    console.warn(`[deriveTitleFromUrl] Parsing error for URL "${rawUrl}":`, err);
+  }
   return '';
 }
 

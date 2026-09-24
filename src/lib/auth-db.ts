@@ -9,6 +9,7 @@ import {
   verifyPin,
   generateSalt,
   isCombinedAccount,
+  resolveUserRole,
 } from './auth';
 
 export interface StoredUser {
@@ -23,19 +24,30 @@ export interface StoredUser {
   updated_at: string;
 }
 
-// On serverless environments (Vercel/AWS Lambda), process.cwd() is read-only.
-// Use os.tmpdir() when in Vercel or when local directory is not writable.
+/**
+ * Detect serverless production environment (Vercel, AWS Lambda, or production NODE_ENV).
+ * In serverless production, ephemeral local disk (/tmp) is unsafe for stateful persistence.
+ */
+export function isServerlessProduction(): boolean {
+  return Boolean(
+    process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.NODE_ENV === 'production'
+  );
+}
+
 function getLocalUsersFilePath(): string {
-  if (process.env.VERCEL) {
-    return path.join(os.tmpdir(), 'pricewatcher_users.json');
-  }
   return path.join(process.cwd(), 'data', 'users.json');
 }
 
-// Memory cache for fallback
+// Memory cache for local development/offline test fallback only
 let fallbackUsers: StoredUser[] | null = null;
 
 function loadLocalUsers(): StoredUser[] {
+  // Never read ephemeral file stores in serverless production
+  if (isServerlessProduction()) {
+    return [];
+  }
   if (fallbackUsers) return fallbackUsers;
   try {
     const filePath = getLocalUsersFilePath();
@@ -52,6 +64,10 @@ function loadLocalUsers(): StoredUser[] {
 }
 
 function saveLocalUsers(users: StoredUser[]): void {
+  // Never write to ephemeral /tmp in serverless production
+  if (isServerlessProduction()) {
+    return;
+  }
   fallbackUsers = users;
   try {
     const filePath = getLocalUsersFilePath();
@@ -77,13 +93,13 @@ function getDbClient() {
 }
 
 function toAuthUser(user: StoredUser): AuthUser {
-  const isCombined = isCombinedAccount(user.name, user.email);
+  const { isCombined, role } = resolveUserRole(user.name, user.email);
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     isCombined,
-    role: isCombined ? 'combined' : 'user',
+    role,
     createdAt: user.created_at,
   };
 }
@@ -103,6 +119,7 @@ export async function authenticateByEmailAndPin(
   const db = getDbClient();
   let userRecord: StoredUser | null = null;
 
+  let dbError = false;
   try {
     const { data, error } = await db
       .from('app_users')
@@ -126,12 +143,18 @@ export async function authenticateByEmailAndPin(
           email: normEmail,
         } as StoredUser;
       }
+    } else if (error) {
+      dbError = true;
     }
   } catch {
-    // Supabase query error fallback
+    dbError = true;
   }
 
-  if (!userRecord) {
+  if (isServerlessProduction() && dbError && !userRecord) {
+    return { user: null, error: 'Database service temporarily unavailable. Please try again shortly.' };
+  }
+
+  if (!userRecord && !isServerlessProduction()) {
     const local = loadLocalUsers().find((u) => (u.email || '').toLowerCase() === normEmail);
     if (local) {
       userRecord = local;
@@ -192,7 +215,10 @@ export async function isEmailTaken(email: string): Promise<boolean> {
     // ignore
   }
 
-  return loadLocalUsers().some((u) => (u.email || '').toLowerCase() === normEmail);
+  if (!isServerlessProduction()) {
+    return loadLocalUsers().some((u) => (u.email || '').toLowerCase() === normEmail);
+  }
+  return false;
 }
 
 /**
@@ -250,8 +276,12 @@ export async function getUserById(id: string): Promise<AuthUser | null> {
     // ignore
   }
 
-  const local = loadLocalUsers().find((u) => u.id === id);
-  return local ? toAuthUser(local) : null;
+  if (!isServerlessProduction()) {
+    const local = loadLocalUsers().find((u) => u.id === id);
+    return local ? toAuthUser(local) : null;
+  }
+
+  return null;
 }
 
 /**
@@ -288,6 +318,7 @@ export async function createUser(params: {
 
   const db = getDbClient();
 
+  let persistedToDb = false;
   try {
     const { error: insertErr } = await db.from('app_users').insert({
       id: newUser.id,
@@ -301,11 +332,13 @@ export async function createUser(params: {
       updated_at: newUser.updated_at,
     });
 
-    if (insertErr) {
+    if (!insertErr) {
+      persistedToDb = true;
+    } else {
       console.warn('Direct insert into app_users failed, trying schema bridge:', insertErr.message);
       if (insertErr.message.includes('column') || insertErr.message.includes('schema cache')) {
         // Fallback for when migration 008 is pending in SQL editor: store email inside name
-        await db.from('app_users').insert({
+        const { error: bridgeErr } = await db.from('app_users').insert({
           id: newUser.id,
           name: `${newUser.name} [${newUser.email}]`,
           pin_hash: newUser.pin_hash,
@@ -315,23 +348,33 @@ export async function createUser(params: {
           created_at: newUser.created_at,
           updated_at: newUser.updated_at,
         });
+        if (!bridgeErr) {
+          persistedToDb = true;
+        }
       }
     }
   } catch (err) {
     console.warn('Failed to insert user into Supabase app_users table:', err);
   }
 
-  // Always sync to local storage as resilient backup / dev environment
-  const currentLocal = loadLocalUsers();
-  const existingIdx = currentLocal.findIndex(
-    (u) => (u.email || '').toLowerCase() === normEmail || u.id === id
-  );
-  if (existingIdx >= 0) {
-    currentLocal[existingIdx] = newUser;
-  } else {
-    currentLocal.push(newUser);
+  // In serverless production, Supabase persistence is strictly mandatory.
+  if (!persistedToDb && isServerlessProduction()) {
+    throw new Error('Database service unavailable. Persistent storage is required to register an account in production.');
   }
-  saveLocalUsers(currentLocal);
+
+  // In non-serverless local development, sync to local storage as backup
+  if (!isServerlessProduction()) {
+    const currentLocal = loadLocalUsers();
+    const existingIdx = currentLocal.findIndex(
+      (u) => (u.email || '').toLowerCase() === normEmail || u.id === id
+    );
+    if (existingIdx >= 0) {
+      currentLocal[existingIdx] = newUser;
+    } else {
+      currentLocal.push(newUser);
+    }
+    saveLocalUsers(currentLocal);
+  }
 
   return toAuthUser(newUser);
 }

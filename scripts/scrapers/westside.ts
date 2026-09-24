@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { parsePrice, isPlaywrightAvailable } from './utils';
+import { parsePrice, isPlaywrightAvailable, withSharedBrowserPage } from './utils';
 import { ScrapeResult } from '../../src/types';
 import {
   extractJsonLdProduct,
@@ -142,57 +142,53 @@ export async function scrapeWestside(url: string): Promise<ScrapeResult> {
     };
   }
 
-  let browser;
   try {
-    const { chromium } = await import('playwright');
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-      viewport: { width: 1280, height: 800 },
-    });
+    return await withSharedBrowserPage(
+      async (page) => {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+        await page.waitForTimeout(2500);
 
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-    await page.waitForTimeout(2500);
+        const priceText = await page
+          .locator('span.price-item--sale, span.price-item--regular, span.price__current, span.money')
+          .first()
+          .textContent()
+          .catch(() => null);
 
-    const priceText = await page
-      .locator('span.price-item--sale, span.price-item--regular, span.price__current, span.money')
-      .first()
-      .textContent()
-      .catch(() => null);
+        const titleText = await page
+          .locator('h1.product__title, h1')
+          .first()
+          .textContent()
+          .catch(() => 'Westside Product');
 
-    const titleText = await page
-      .locator('h1.product__title, h1')
-      .first()
-      .textContent()
-      .catch(() => 'Westside Product');
+        const imageSrc = await page
+          .locator('img.product__media-image, div.product__media img')
+          .first()
+          .getAttribute('src')
+          .catch(() => null);
 
-    const imageSrc = await page
-      .locator('img.product__media-image, div.product__media img')
-      .first()
-      .getAttribute('src')
-      .catch(() => null);
+        const price = priceText ? parsePrice(priceText) : null;
+        if (!price || price <= 0) {
+          return { success: false, error: 'Could not extract Westside price with Playwright.' };
+        }
 
-    const price = priceText ? parsePrice(priceText) : null;
-    if (!price || price <= 0) {
-      return { success: false, error: 'Could not extract Westside price with Playwright.' };
-    }
+        const formattedImage = imageSrc?.startsWith('//') ? `https:${imageSrc}` : imageSrc;
 
-    const formattedImage = imageSrc?.startsWith('//') ? `https:${imageSrc}` : imageSrc;
-
-    return {
-      success: true,
-      title: titleText?.trim() || 'Westside Product',
-      price,
-      imageUrl: formattedImage || undefined,
-      currency: 'INR',
-    };
+        return {
+          success: true,
+          title: titleText?.trim() || 'Westside Product',
+          price,
+          imageUrl: formattedImage || undefined,
+          currency: 'INR',
+        };
+      },
+      {
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        viewport: { width: 1280, height: 800 },
+      }
+    );
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
     return { success: false, error: `Westside Playwright failed: ${errorMsg}` };
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => null);
-    }
   }
 }

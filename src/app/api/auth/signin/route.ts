@@ -5,6 +5,7 @@ import {
   createSessionToken,
 } from '@/lib/auth';
 import { authenticateByEmailAndPin } from '@/lib/auth-db';
+import { checkSigninRateLimit, resetSigninRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     // Validate PIN (4 to 6 numeric digits)
     if (!pin || typeof pin !== 'string' || !/^\d{4,6}$/.test(pin.trim())) {
       return NextResponse.json(
-        { error: 'Please enter your 4-6 digit numeric PIN.' },
+        { error: 'Please enter your 4-6 digit numeric PIN. (6-digit PINs are strongly recommended for enhanced security).' },
         { status: 400 }
       );
     }
@@ -36,18 +37,43 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPin = pin.trim();
 
+    // Rate limit signin attempts by Email and Client IP to prevent brute-force attacks
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const emailLimit = await checkSigninRateLimit(`email:${cleanEmail}`, 5, 900); // 5 attempts per 15 mins
+    const ipLimit = await checkSigninRateLimit(`ip:${clientIp}`, 15, 900); // 15 attempts per IP per 15 mins
+
+    if (!emailLimit.allowed || !ipLimit.allowed) {
+      const retryAfter = Math.max(emailLimit.retryAfterSeconds, ipLimit.retryAfterSeconds);
+      return NextResponse.json(
+        {
+          error: `Too many signin attempts. For your account security, signin is locked for ${retryAfter} seconds.`,
+          retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfter),
+          },
+        }
+      );
+    }
+
     // Authenticate by Email and PIN
     const result = await authenticateByEmailAndPin(cleanEmail, cleanPin);
     if (!result.user) {
+      const isDbDown = result.error?.includes('unavailable');
       return NextResponse.json(
         {
           error:
             result.error ||
             'Invalid credentials. Please verify your email and PIN or create a new account.',
         },
-        { status: 401 }
+        { status: isDbDown ? 503 : 401 }
       );
     }
+
+    // Reset rate limiter on successful authentication
+    await resetSigninRateLimit(`email:${cleanEmail}`);
 
     const user = result.user;
     const token = createSessionToken(user);

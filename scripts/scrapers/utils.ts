@@ -57,17 +57,38 @@ export async function delay(ms: number): Promise<void> {
 }
 
 /**
- * Executes a network fetch with exponential backoff and randomized jitter on 429/503 rate limits.
+ * Executes a network fetch with request timeout, exponential backoff, and randomized jitter on 429/503 rate limits.
+ * Protects serverless functions and CI runners from hung TCP sockets with an AbortController timeout.
  */
 export async function fetchWithBackoff(
   url: string,
   options?: RequestInit,
-  maxRetries: number = 3
+  maxRetries: number = 3,
+  timeoutMs: number = 15000
 ): Promise<Response> {
   let attempt = 0;
   while (true) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort(new Error(`Request timed out after ${timeoutMs}ms for URL: ${url}`));
+    }, timeoutMs);
+
+    const callerSignal = options?.signal;
+    const onCallerAbort = () => controller.abort(callerSignal?.reason);
+    if (callerSignal) {
+      if (callerSignal.aborted) {
+        clearTimeout(timeoutId);
+        throw callerSignal.reason;
+      }
+      callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+    }
+
     try {
-      const res = await fetch(url, options);
+      const res = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
       if (res.status === 429 || res.status === 503) {
         if (attempt < maxRetries) {
           attempt++;
@@ -99,6 +120,11 @@ export async function fetchWithBackoff(
         continue;
       }
       throw err;
+    } finally {
+      clearTimeout(timeoutId);
+      if (callerSignal) {
+        callerSignal.removeEventListener('abort', onCallerAbort);
+      }
     }
   }
 }
@@ -114,6 +140,91 @@ export function isPlaywrightAvailable(): boolean {
     return Boolean(execPath && fs.existsSync(execPath));
   } catch {
     return false;
+  }
+}
+
+// ============================================================================
+// Shared Playwright Browser Lifecycle Manager
+// Avoids launching a separate Chromium process per product to preserve runner memory & CPU
+// ============================================================================
+
+let sharedBrowserPromise: Promise<any> | null = null;
+
+export async function getSharedBrowser(): Promise<any> {
+  if (!isPlaywrightAvailable()) {
+    return null;
+  }
+  if (!sharedBrowserPromise) {
+    sharedBrowserPromise = (async () => {
+      try {
+        const { chromium } = await import('playwright');
+        const browser = await chromium.launch({
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-gpu',
+          ],
+        });
+        return browser;
+      } catch (err) {
+        console.warn('[Playwright] Failed to launch shared Chromium browser:', err);
+        sharedBrowserPromise = null;
+        return null;
+      }
+    })();
+  }
+  return sharedBrowserPromise;
+}
+
+export async function closeSharedBrowser(): Promise<void> {
+  if (sharedBrowserPromise) {
+    try {
+      const browser = await sharedBrowserPromise;
+      if (browser) {
+        await browser.close();
+      }
+    } catch (err) {
+      console.warn('[Playwright] Error closing shared Chromium browser:', err);
+    } finally {
+      sharedBrowserPromise = null;
+    }
+  }
+}
+
+export async function withSharedBrowserPage<T>(
+  action: (page: any) => Promise<T>,
+  options?: {
+    userAgent?: string;
+    viewport?: { width: number; height: number };
+    locale?: string;
+    timezoneId?: string;
+  }
+): Promise<T> {
+  const browser = await getSharedBrowser();
+  if (!browser) {
+    throw new Error('Playwright browser is unavailable in this environment.');
+  }
+
+  const context = await browser.newContext({
+    userAgent: options?.userAgent || getRandomUserAgent(),
+    viewport: options?.viewport || { width: 1280, height: 800 },
+    locale: options?.locale || 'en-IN',
+    timezoneId: options?.timezoneId || 'Asia/Kolkata',
+  });
+
+  const page = await context.newPage();
+  try {
+    return await action(page);
+  } finally {
+    try {
+      await page.close();
+    } catch {}
+    try {
+      await context.close();
+    } catch {}
   }
 }
 

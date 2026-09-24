@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { getDefaultHeaders, parsePrice, isPlaywrightAvailable } from './utils';
+import { getDefaultHeaders, parsePrice, isPlaywrightAvailable, withSharedBrowserPage } from './utils';
 import { ScrapeResult } from '../../src/types';
 import { extractJsonLdProduct, extractMetaTags } from './resilient-extractor';
 
@@ -114,39 +114,35 @@ export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
     };
   }
 
-  let browser;
   try {
-    const { chromium } = await import('playwright');
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    });
+    return await withSharedBrowserPage(
+      async (page) => {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+        await page.waitForTimeout(3000); // Allow React hydration
 
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-    await page.waitForTimeout(3000); // Allow React hydration
+        const priceText = await page.locator('h4, span[class*="Price"], div[class*="Price"]').first().textContent().catch(() => null);
+        const titleText = await page.locator('h1').first().textContent().catch(() => 'Meesho Product');
+        const imageSrc = await page.locator('img[class*="ProductImage"], img').first().getAttribute('src').catch(() => null);
 
-    const priceText = await page.locator('h4, span[class*="Price"], div[class*="Price"]').first().textContent().catch(() => null);
-    const titleText = await page.locator('h1').first().textContent().catch(() => 'Meesho Product');
-    const imageSrc = await page.locator('img[class*="ProductImage"], img').first().getAttribute('src').catch(() => null);
+        const price = priceText ? parsePrice(priceText) : null;
+        if (!price || price <= 0) {
+          return { success: false, error: 'Could not extract Meesho price with Playwright.' };
+        }
 
-    const price = priceText ? parsePrice(priceText) : null;
-    if (!price || price <= 0) {
-      return { success: false, error: 'Could not extract Meesho price with Playwright.' };
-    }
-
-    return {
-      success: true,
-      title: titleText?.trim() || 'Meesho Product',
-      price,
-      imageUrl: imageSrc || undefined,
-      currency: 'INR',
-    };
+        return {
+          success: true,
+          title: titleText?.trim() || 'Meesho Product',
+          price,
+          imageUrl: imageSrc || undefined,
+          currency: 'INR',
+        };
+      },
+      {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+      }
+    );
   } catch (browserErr: unknown) {
     const errorMsg = browserErr instanceof Error ? browserErr.message : String(browserErr);
     return { success: false, error: `Meesho Playwright failed: ${errorMsg}` };
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => null);
-    }
   }
 }
