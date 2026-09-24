@@ -1,5 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Polyfill native WebSocket placeholder for Node.js environments lacking global WebSocket (< Node 22)
+// to prevent @supabase/realtime-js from throwing on initialization when Realtime is unused.
+if (typeof globalThis !== 'undefined' && typeof (globalThis as any).WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = class DummyWebSocket {};
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
