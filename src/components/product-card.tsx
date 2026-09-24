@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ExternalLink, TrendingDown, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Product } from '@/types';
 import { PlatformBadge } from './platform-badge';
@@ -45,14 +46,16 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Product image & title */}
         <div className="flex gap-3 mb-3">
-          <div className="w-20 h-20 rounded-xl bg-slate-800 flex-shrink-0 overflow-hidden flex items-center justify-center border border-slate-700/50">
+          <div className="relative w-20 h-20 rounded-xl bg-slate-800 flex-shrink-0 overflow-hidden flex items-center justify-center border border-slate-700/50">
             {product.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={product.image_url}
                 alt={product.title}
-                className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform"
+                fill
+                sizes="80px"
+                className="object-contain p-1 group-hover:scale-105 transition-transform"
                 loading="lazy"
+                unoptimized
               />
             ) : (
               <span className="text-slate-600 text-xs font-medium">No Image</span>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   PlusCircle,
@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   AlertCircle,
   Flame,
+  Download,
 } from 'lucide-react';
 import { Product, Platform } from '@/types';
 import { ProductCard } from '@/components/product-card';
@@ -46,27 +47,70 @@ export default function DashboardPage() {
     fetchProducts();
   }, []);
 
-  // Filter & sort logic
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
-    const matchesPlatform = selectedPlatform === 'all' || p.platform === selectedPlatform;
-    const matchesLow = onlyAllTimeLow ? p.current_price <= p.lowest_price && p.lowest_price > 0 && p.highest_price > p.current_price : true;
-    return matchesSearch && matchesPlatform && matchesLow;
-  });
+  // Filter & sort logic (memoized to avoid re-computation on unrelated re-renders)
+  const filteredProducts = useMemo(() =>
+    products.filter((p) => {
+      const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
+      const matchesPlatform = selectedPlatform === 'all' || p.platform === selectedPlatform;
+      const matchesLow = onlyAllTimeLow ? p.current_price <= p.lowest_price && p.lowest_price > 0 && p.highest_price > p.current_price : true;
+      return matchesSearch && matchesPlatform && matchesLow;
+    }),
+    [products, search, selectedPlatform, onlyAllTimeLow]
+  );
 
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    if (sortBy === 'price_asc') return a.current_price - b.current_price;
-    if (sortBy === 'discount') {
-      const discA = a.highest_price > 0 ? (a.highest_price - a.current_price) / a.highest_price : 0;
-      const discB = b.highest_price > 0 ? (b.highest_price - b.current_price) / b.highest_price : 0;
-      return discB - discA;
+  const sortedProducts = useMemo(() =>
+    [...filteredProducts].sort((a, b) => {
+      if (sortBy === 'price_asc') return a.current_price - b.current_price;
+      if (sortBy === 'discount') {
+        const discA = a.highest_price > 0 ? (a.highest_price - a.current_price) / a.highest_price : 0;
+        const discB = b.highest_price > 0 ? (b.highest_price - b.current_price) / b.highest_price : 0;
+        return discB - discA;
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }),
+    [filteredProducts, sortBy]
+  );
+
+  const allTimeLowCount = useMemo(() =>
+    products.filter(
+      (p) => p.current_price <= p.lowest_price && p.lowest_price > 0 && p.highest_price > p.current_price
+    ).length,
+    [products]
+  );
+
+  const exportData = (format: 'csv' | 'json') => {
+    if (products.length === 0) return;
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify(products, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `price-watcher-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const headers = ['Platform', 'Title', 'Current Price', 'Lowest Price', 'Highest Price', 'Target Price', 'Status', 'URL', 'Created At'];
+      const rows = products.map((p) => [
+        p.platform,
+        `"${(p.title || '').replace(/"/g, '""')}"`,
+        p.current_price,
+        p.lowest_price,
+        p.highest_price,
+        p.target_price || '',
+        p.check_status,
+        `"${p.url}"`,
+        p.created_at,
+      ]);
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `price-watcher-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-
-  const allTimeLowCount = products.filter(
-    (p) => p.current_price <= p.lowest_price && p.lowest_price > 0 && p.highest_price > p.current_price
-  ).length;
+  };
 
   return (
     <div className="space-y-6">
@@ -82,6 +126,16 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportData('csv')}
+            disabled={products.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs transition-colors disabled:opacity-50"
+            title="Export CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-400" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
+
           <button
             onClick={fetchProducts}
             disabled={isLoading}

@@ -19,7 +19,15 @@
     }
   },
   "host_permissions": [
-    "https://*/*",
+    "https://*.amazon.in/*",
+    "https://*.flipkart.com/*",
+    "https://*.meesho.com/*",
+    "https://*.myntra.com/*",
+    "https://*.ajio.com/*",
+    "https://*.westside.com/*",
     "http://localhost:3000/*"
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }

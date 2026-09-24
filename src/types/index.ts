@@ -47,34 +47,12 @@ export interface AppSettings {
   updated_at?: string;
 }
 
-// Alias for backwards compatibility
-export type HouseholdSettings = AppSettings;
-
-export interface PushSubscriptionRecord {
-  id?: string;
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-  created_at?: string;
-}
-
 export interface PriceHistoryItem {
   id: number;
   product_id: string;
   price: number;
   currency: string;
   recorded_at: string;
-}
-
-export interface UserProfile {
-  id: string;
-  telegram_chat_id: string | null;
-  telegram_verified: boolean;
-  notification_preference: 'all_time_low' | 'any_drop' | 'never';
-  created_at: string;
-  updated_at: string;
 }
 
 export interface ScrapeResult {

@@ -1,23 +1,20 @@
 import webpush from 'web-push';
 import { supabase, getServiceSupabase } from './supabase';
 
-// Generate default fallback VAPID keys if not present in env
-const DEFAULT_VAPID_PUBLIC =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  'BJeWpGbW6kkqoVzplUPqE-4NClupkqYD0xM8v7V-pNo84btMzAllrq1r7uIttyv7p1O6ghne_eSCSHvMUu7Qsx8';
-const DEFAULT_VAPID_PRIVATE =
-  process.env.VAPID_PRIVATE_KEY || 'hEnr1g0Rgozl4Y760r4wgMDTPx6XnULIldzW6fp6c3Y';
-const VAPID_SUBJECT =
-  process.env.VAPID_SUBJECT || 'mailto:alerts@pricewatcher.local';
+const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:alerts@pricewatcher.local';
 
-try {
-  webpush.setVapidDetails(
-    VAPID_SUBJECT,
-    DEFAULT_VAPID_PUBLIC,
-    DEFAULT_VAPID_PRIVATE
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+  } catch (e) {
+    console.warn('VAPID setup warning:', e);
+  }
+} else {
+  console.warn(
+    'VAPID keys not configured (NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY). Web push notifications are disabled.'
   );
-} catch (e) {
-  console.warn('VAPID setup warning:', e);
 }
 
 export interface WebPushPayload {

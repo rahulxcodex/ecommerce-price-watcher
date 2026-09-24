@@ -3,6 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. Database operations will fail.'
+  );
+}
+
 // Client for browser / public frontend operations (uses Anon Key + RLS)
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
@@ -15,8 +21,11 @@ export function getServiceSupabase() {
   if (!serviceKey) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for server admin operations.');
   }
+  if (!supabaseUrl) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is required for server admin operations.');
+  }
   return createClient(
-    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseUrl,
     serviceKey,
     {
       auth: {

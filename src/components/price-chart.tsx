@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -28,19 +29,23 @@ export function PriceChart({ history, lowestPrice }: PriceChartProps) {
     );
   }
 
-  // Format data for chart
-  const data = history.map((item) => {
-    const d = new Date(item.recorded_at);
-    return {
-      date: `${d.getDate()}/${d.getMonth() + 1} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`,
-      price: Number(item.price),
-      rawDate: item.recorded_at,
-    };
-  });
+  // Memoize chart data transformation to avoid re-computation on unrelated re-renders
+  const { data, minPrice, maxPrice, padding } = useMemo(() => {
+    const chartData = history.map((item) => {
+      const d = new Date(item.recorded_at);
+      return {
+        date: `${d.getDate()}/${d.getMonth() + 1} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`,
+        price: Number(item.price),
+        rawDate: item.recorded_at,
+      };
+    });
 
-  const minPrice = Math.min(...data.map((d) => d.price));
-  const maxPrice = Math.max(...data.map((d) => d.price));
-  const padding = (maxPrice - minPrice) * 0.15 || 50;
+    const min = Math.min(...chartData.map((d) => d.price));
+    const max = Math.max(...chartData.map((d) => d.price));
+    const pad = (max - min) * 0.15 || 50;
+
+    return { data: chartData, minPrice: min, maxPrice: max, padding: pad };
+  }, [history]);
 
   return (
     <div className="w-full bg-slate-900/40 p-4 rounded-xl border border-slate-800">

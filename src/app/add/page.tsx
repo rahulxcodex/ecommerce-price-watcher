@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PlusCircle, Loader2, ArrowLeft, CheckCircle, AlertCircle, Info, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { PlatformBadge } from '@/components/platform-badge';
-import { deriveTitleFromUrl } from '@/lib/security';
+import { deriveTitleFromUrl, validateAndSanitizeUrl } from '@/lib/security';
 import { Platform } from '@/types';
 
 function AddProductForm() {
@@ -69,6 +69,12 @@ function AddProductForm() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    const urlCheck = validateAndSanitizeUrl(url.trim());
+    if (!urlCheck.valid) {
+      setError(urlCheck.error || 'Please enter a valid e-commerce product URL.');
+      return;
+    }
 
     // Instant client-side validation for anti-bot protected stores
     if (

@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
+import { analyzePriceTrend } from '@/lib/dsa';
 import {
   ArrowLeft,
   ExternalLink,
@@ -32,6 +34,14 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [isSavingTarget, setIsSavingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const trendAnalysis = useMemo(
+    () =>
+      analyzePriceTrend(
+        history.map((h) => ({ price: h.price, timestamp: h.recorded_at }))
+      ),
+    [history]
+  );
 
   const fetchDetails = useCallback(async () => {
     try {
@@ -159,13 +169,15 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl">
         <div className="flex flex-col md:flex-row gap-6">
           {/* Image */}
-          <div className="w-full md:w-48 h-48 rounded-2xl bg-slate-800 flex-shrink-0 flex items-center justify-center p-3 border border-slate-700/50">
+          <div className="relative w-full md:w-48 h-48 rounded-2xl bg-slate-800 flex-shrink-0 flex items-center justify-center p-3 border border-slate-700/50 overflow-hidden">
             {product.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={product.image_url}
                 alt={product.title}
-                className="w-full h-full object-contain"
+                fill
+                sizes="(max-width: 768px) 100vw, 192px"
+                className="object-contain p-2"
+                unoptimized
               />
             ) : (
               <span className="text-slate-600 text-xs">No image available</span>
@@ -217,22 +229,37 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
               {/* Data Science Predictive Analytics: Buy vs. Wait Engine */}
               {(() => {
-                const distToLow = product.lowest_price > 0 ? (product.current_price - product.lowest_price) / product.lowest_price : 0;
-                const distToHigh = product.highest_price > 0 ? (product.highest_price - product.current_price) / product.highest_price : 0;
-                const isGoodBuy = distToLow <= 0.05 || distToHigh >= 0.2;
                 const isDeceptive = product.highest_price >= product.current_price * 1.5 && history.length >= 2;
+                const rec = trendAnalysis.recommendation;
+                const isGoodBuy = rec === 'STRONG_BUY' || rec === 'BUY';
 
                 return (
                   <div className="mt-4 space-y-2">
-                    <div className="inline-flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                    <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
                       <span className="text-slate-500 font-medium">Predictive Verdict:</span>
-                      {isGoodBuy ? (
+                      {rec === 'STRONG_BUY' ? (
                         <span className="font-bold text-emerald-400 flex items-center gap-1">
-                          🟢 BUY NOW — At or near historical price floor!
+                          🟢 STRONG BUY — At historical price floor!
+                        </span>
+                      ) : rec === 'BUY' ? (
+                        <span className="font-bold text-emerald-300 flex items-center gap-1">
+                          🟢 GOOD BUY — Favorable price distribution.
                         </span>
                       ) : (
                         <span className="font-bold text-amber-400 flex items-center gap-1">
-                          ⏳ WAIT — Price is {Math.round(distToLow * 100)}% above recorded low; drop likely during sale.
+                          ⏳ WAIT — Price is above floor; likely to drop during sales.
+                        </span>
+                      )}
+
+                      {trendAnalysis.rollingLow7d !== undefined && trendAnalysis.rollingLow7d > 0 && (
+                        <span className="text-[11px] bg-slate-900 text-slate-300 px-2 py-0.5 rounded-lg border border-slate-800">
+                          7d Low: {formatPrice(trendAnalysis.rollingLow7d, product.currency)}
+                        </span>
+                      )}
+
+                      {trendAnalysis.direction && (
+                        <span className="text-[11px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded-lg border border-slate-800">
+                          Trend: {trendAnalysis.direction === 'falling' ? '📉 Dropping' : trendAnalysis.direction === 'rising' ? '📈 Rising' : '➡️ Stable'} ({trendAnalysis.confidence}% conf)
                         </span>
                       )}
                     </div>

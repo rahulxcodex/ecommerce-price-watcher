@@ -56,6 +56,39 @@ export async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Executes a network fetch with exponential backoff and randomized jitter on 429/503 rate limits.
+ */
+export async function fetchWithBackoff(
+  url: string,
+  options?: RequestInit,
+  maxRetries: number = 3
+): Promise<Response> {
+  let attempt = 0;
+  while (true) {
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 429 || res.status === 503) {
+        if (attempt < maxRetries) {
+          attempt++;
+          const delayMs = Math.floor(Math.random() * Math.min(10000, 1000 * Math.pow(2, attempt)));
+          await delay(delayMs);
+          continue;
+        }
+      }
+      return res;
+    } catch (err: unknown) {
+      if (attempt < maxRetries) {
+        attempt++;
+        const delayMs = Math.floor(Math.random() * Math.min(10000, 1000 * Math.pow(2, attempt)));
+        await delay(delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 export function isPlaywrightAvailable(): boolean {
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION) {
     return false;

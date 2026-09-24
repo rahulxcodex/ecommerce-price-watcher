@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
+import { validateSettingsPayload } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +64,11 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const body = await req.json();
+
+    const validation = validateSettingsPayload(body);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error || 'Invalid settings payload' }, { status: 400 });
+    }
 
     const extendedPayload = {
       id: 'default',

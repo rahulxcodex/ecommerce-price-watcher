@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
+import { validatePushEndpoint } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,10 +16,15 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const body = await req.json();
-    const { subscription, recipient } = body;
+    const { subscription } = body;
 
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return NextResponse.json({ error: 'Valid subscription object is required.' }, { status: 400 });
+    }
+
+    const endpointCheck = validatePushEndpoint(subscription.endpoint);
+    if (!endpointCheck.valid) {
+      return NextResponse.json({ error: endpointCheck.reason || 'Invalid push endpoint.' }, { status: 400 });
     }
 
     const upsertPayload: Record<string, unknown> = {

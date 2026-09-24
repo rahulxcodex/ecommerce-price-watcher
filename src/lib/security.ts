@@ -243,3 +243,98 @@ export function deriveTitleFromUrl(rawUrl: string, platform?: string): string {
   } catch {}
   return '';
 }
+
+/**
+ * Validates browser Web Push subscription endpoints against known push providers.
+ */
+const ALLOWED_PUSH_DOMAINS = [
+  /^(fcm|android)\.googleapis\.com$/i,
+  /^([a-z0-9-]+\.)?push\.services\.mozilla\.com$/i,
+  /^([a-z0-9-]+\.)?(notify|wns)\.windows\.com$/i,
+  /^([a-z0-9-]+\.)?push\.apple\.com$/i,
+];
+
+export function validatePushEndpoint(endpoint: string): { valid: boolean; reason?: string } {
+  if (!endpoint || typeof endpoint !== 'string') {
+    return { valid: false, reason: 'Endpoint URL is required' };
+  }
+  try {
+    const parsed = new URL(endpoint.trim());
+    if (parsed.protocol !== 'https:') {
+      return { valid: false, reason: 'Push endpoint must use HTTPS' };
+    }
+    const isAllowed = ALLOWED_PUSH_DOMAINS.some((pattern) => pattern.test(parsed.hostname));
+    if (!isAllowed) {
+      return { valid: false, reason: 'Untrusted push service provider domain' };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false, reason: 'Invalid endpoint URL format' };
+  }
+}
+
+/**
+ * Validates and sanitizes settings configuration payloads.
+ */
+export function validateSettingsPayload(body: Record<string, any>): { valid: boolean; error?: string } {
+  if (!body || typeof body !== 'object') {
+    return { valid: false, error: 'Invalid settings payload' };
+  }
+
+  // Discord webhook validation
+  if (body.discord_webhook) {
+    const hook = String(body.discord_webhook).trim();
+    if (
+      !hook.startsWith('https://discord.com/api/webhooks/') &&
+      !hook.startsWith('https://canary.discord.com/api/webhooks/')
+    ) {
+      return { valid: false, error: 'Invalid Discord webhook URL format.' };
+    }
+  }
+
+  // ntfy topic validation
+  if (body.ntfy_topic) {
+    const topic = String(body.ntfy_topic).trim();
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(topic)) {
+      return { valid: false, error: 'ntfy topic must be alphanumeric (1-64 characters).' };
+    }
+  }
+
+  // Email validation
+  if (body.email) {
+    const emails = String(body.email).split(',').map((e) => e.trim()).filter(Boolean);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const em of emails) {
+      if (!emailRegex.test(em)) {
+        return { valid: false, error: `Invalid email address format: ${em}` };
+      }
+    }
+  }
+
+  // WhatsApp phone validation
+  if (body.whatsapp_phone) {
+    const phone = String(body.whatsapp_phone).trim();
+    if (!/^\+?[0-9]{7,15}$/.test(phone)) {
+      return { valid: false, error: 'Invalid WhatsApp phone number format.' };
+    }
+  }
+
+  // Telegram chat ID validation
+  if (body.telegram_chat_id) {
+    const chatId = String(body.telegram_chat_id).trim();
+    if (!/^-?[0-9a-zA-Z_]{1,64}$/.test(chatId)) {
+      return { valid: false, error: 'Invalid Telegram chat ID format.' };
+    }
+  }
+
+  // Notification preference validation
+  if (
+    body.notification_preference &&
+    !['all_time_low', 'any_drop', 'never'].includes(body.notification_preference)
+  ) {
+    return { valid: false, error: 'Invalid notification preference value.' };
+  }
+
+  return { valid: true };
+}
+

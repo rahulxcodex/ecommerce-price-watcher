@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: price-check-cron
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   check-prices:
