@@ -6,7 +6,17 @@ import { Footer } from '@/components/footer';
 export const metadata: Metadata = {
   title: 'PriceWatcher - Multi-Store Price Tracker (Amazon, Flipkart, Meesho, Myntra, Ajio, Westside)',
   description:
-    'Paste any product link and get notified the moment it hits its all-time lowest price. 100% free with automated GitHub Actions and Telegram alerts.',
+    'Paste any product link and get notified the moment it hits its all-time lowest price. 100% free with automated GitHub Actions, Telegram, WhatsApp, Discord, and Web Push alerts.',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/icon-192.png',
+  },
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({

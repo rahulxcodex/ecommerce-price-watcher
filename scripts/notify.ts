@@ -185,7 +185,154 @@ export async function sendEmailAlert(data: {
 }
 
 /**
- * Dispatches notification to all configured channels (Telegram, WhatsApp, Email)
+ * Sends rich embed price drop alert via Discord Webhook (100% Free, Unlimited)
+ */
+export async function sendDiscordAlert(
+  webhookUrl: string,
+  data: {
+    productTitle: string;
+    productUrl: string;
+    previousPrice: number;
+    newPrice: number;
+    lowestPrice?: number;
+    currency?: string;
+    isAllTimeLow?: boolean;
+    isBackInStock?: boolean;
+    imageUrl?: string;
+    platform?: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const discountPercent =
+      data.previousPrice > data.newPrice
+        ? Math.round(((data.previousPrice - data.newPrice) / data.previousPrice) * 100)
+        : 0;
+
+    const embedColor = data.isBackInStock ? 0x10b981 : data.isAllTimeLow ? 0xf59e0b : 0x06b6d4;
+    const titleEmoji = data.isBackInStock
+      ? '📦 Back in Stock!'
+      : data.isAllTimeLow
+      ? '🔥 All-Time Low Price!'
+      : '📉 Price Drop Alert!';
+
+    const payload = {
+      username: 'PriceWatcher',
+      avatar_url: 'https://ecommerce-price-watcher-puce.vercel.app/icon-192.png',
+      embeds: [
+        {
+          title: `${titleEmoji} ${data.productTitle.slice(0, 100)}`,
+          url: data.productUrl,
+          color: embedColor,
+          description: data.isBackInStock
+            ? `Product is back in stock at **₹${data.newPrice.toLocaleString('en-IN')}**!`
+            : `Price reduced by **${discountPercent}% OFF**! Now **₹${data.newPrice.toLocaleString('en-IN')}** (was ~~₹${data.previousPrice.toLocaleString('en-IN')}~~).`,
+          fields: [
+            {
+              name: '💰 Current Price',
+              value: `₹${data.newPrice.toLocaleString('en-IN')}`,
+              inline: true,
+            },
+            {
+              name: '🏷️ Old Price',
+              value: `₹${data.previousPrice.toLocaleString('en-IN')}`,
+              inline: true,
+            },
+            {
+              name: '🏆 All-Time Low',
+              value: data.lowestPrice ? `₹${data.lowestPrice.toLocaleString('en-IN')}` : 'Yes!',
+              inline: true,
+            },
+          ],
+          thumbnail: data.imageUrl ? { url: data.imageUrl } : undefined,
+          footer: {
+            text: `Store: ${(data.platform || 'Store').toUpperCase()} • PriceWatcher`,
+          },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return { success: false, error: `Discord Webhook returned status ${res.status}: ${errText}` };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errMsg };
+  }
+}
+
+/**
+ * Sends instant push notification via ntfy.sh (100% Free, Zero Signup)
+ */
+export async function sendNtfyAlert(
+  topic: string,
+  data: {
+    productTitle: string;
+    productUrl: string;
+    previousPrice: number;
+    newPrice: number;
+    lowestPrice?: number;
+    isAllTimeLow?: boolean;
+    isBackInStock?: boolean;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const cleanTopic = topic.trim().replace(/^https?:\/\/ntfy\.sh\//, '');
+    const discountPercent =
+      data.previousPrice > data.newPrice
+        ? Math.round(((data.previousPrice - data.newPrice) / data.previousPrice) * 100)
+        : 0;
+
+    const title = data.isBackInStock
+      ? `📦 Back in Stock: ${data.productTitle.slice(0, 40)}`
+      : data.isAllTimeLow
+      ? `🔥 All-Time Low: ${data.productTitle.slice(0, 40)}`
+      : `📉 Price Drop (${discountPercent}% OFF): ${data.productTitle.slice(0, 40)}`;
+
+    const message = `Now ₹${data.newPrice.toLocaleString('en-IN')} (was ₹${data.previousPrice.toLocaleString('en-IN')}). Tap to view product.`;
+
+    const res = await fetch(`https://ntfy.sh/${cleanTopic}`, {
+      method: 'POST',
+      headers: {
+        Title: title,
+        Priority: 'high',
+        Tags: data.isAllTimeLow ? 'fire,tada,moneybag' : 'chart_with_downwards_trend,moneybag',
+        Click: data.productUrl,
+      },
+      body: message,
+    });
+
+    if (!res.ok) {
+      return { success: false, error: `ntfy.sh returned status ${res.status}` };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errMsg };
+  }
+}
+
+function parseRecipients(val?: string | null): string[] {
+  if (!val) return [];
+  return val
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Dispatches notification to all configured channels & multiple accounts
+ * (Telegram, WhatsApp, Email, Discord Webhooks, ntfy.sh)
  */
 export async function dispatchAlerts(
   settings: {
@@ -193,6 +340,8 @@ export async function dispatchAlerts(
     whatsapp_phone?: string | null;
     whatsapp_apikey?: string | null;
     email?: string | null;
+    discord_webhook?: string | null;
+    ntfy_topic?: string | null;
   },
   alertData: {
     productTitle: string;
@@ -210,10 +359,11 @@ export async function dispatchAlerts(
   let dispatched = 0;
   const errors: string[] = [];
 
-  // 1. Telegram Alerts
-  if (settings.telegram_chat_id) {
+  // 1. Telegram Alerts (supports multiple comma/newline separated chat IDs)
+  const telegramIds = parseRecipients(settings.telegram_chat_id);
+  for (const chatId of telegramIds) {
     const res = await sendTelegramAlert({
-      chatId: settings.telegram_chat_id,
+      chatId,
       productTitle: alertData.productTitle,
       productUrl: alertData.productUrl,
       previousPrice: alertData.previousPrice,
@@ -224,30 +374,34 @@ export async function dispatchAlerts(
       isBackInStock: alertData.isBackInStock,
     });
     if (res.success) dispatched++;
-    else if (res.error) errors.push(`Telegram (${settings.telegram_chat_id}): ${res.error}`);
+    else if (res.error) errors.push(`Telegram (${chatId}): ${res.error}`);
   }
 
-  // 2. WhatsApp Alerts
-  if (settings.whatsapp_phone && settings.whatsapp_apikey) {
-    const res = await sendWhatsAppAlert({
-      phone: settings.whatsapp_phone,
-      apiKey: settings.whatsapp_apikey,
-      productTitle: alertData.productTitle,
-      productUrl: alertData.productUrl,
-      previousPrice: alertData.previousPrice,
-      newPrice: alertData.newPrice,
-      currency: alertData.currency || 'INR',
-      isAllTimeLow: alertData.isAllTimeLow,
-      isBackInStock: alertData.isBackInStock,
-    });
-    if (res.success) dispatched++;
-    else if (res.error) errors.push(`WhatsApp (${settings.whatsapp_phone}): ${res.error}`);
+  // 2. WhatsApp Alerts (CallMeBot - supports multiple comma-separated phone numbers)
+  if (settings.whatsapp_apikey) {
+    const phones = parseRecipients(settings.whatsapp_phone);
+    for (const phone of phones) {
+      const res = await sendWhatsAppAlert({
+        phone,
+        apiKey: settings.whatsapp_apikey,
+        productTitle: alertData.productTitle,
+        productUrl: alertData.productUrl,
+        previousPrice: alertData.previousPrice,
+        newPrice: alertData.newPrice,
+        currency: alertData.currency || 'INR',
+        isAllTimeLow: alertData.isAllTimeLow,
+        isBackInStock: alertData.isBackInStock,
+      });
+      if (res.success) dispatched++;
+      else if (res.error) errors.push(`WhatsApp (${phone}): ${res.error}`);
+    }
   }
 
-  // 3. Email Alerts via Apps Script
-  if (settings.email) {
+  // 3. Email Alerts via Apps Script (supports multiple emails)
+  const emails = parseRecipients(settings.email);
+  for (const email of emails) {
     const res = await sendEmailAlert({
-      to: settings.email,
+      to: email,
       productTitle: alertData.productTitle,
       productUrl: alertData.productUrl,
       previousPrice: alertData.previousPrice,
@@ -260,7 +414,42 @@ export async function dispatchAlerts(
       platform: alertData.platform,
     });
     if (res.success) dispatched++;
-    else if (res.error) errors.push(`Email (${settings.email}): ${res.error}`);
+    else if (res.error) errors.push(`Email (${email}): ${res.error}`);
+  }
+
+  // 4. Discord Webhook Alerts (supports multiple webhooks)
+  const webhooks = parseRecipients(settings.discord_webhook);
+  for (const webhookUrl of webhooks) {
+    const res = await sendDiscordAlert(webhookUrl, {
+      productTitle: alertData.productTitle,
+      productUrl: alertData.productUrl,
+      previousPrice: alertData.previousPrice,
+      newPrice: alertData.newPrice,
+      lowestPrice: alertData.lowestPrice,
+      currency: alertData.currency || 'INR',
+      isAllTimeLow: alertData.isAllTimeLow,
+      isBackInStock: alertData.isBackInStock,
+      imageUrl: alertData.imageUrl,
+      platform: alertData.platform,
+    });
+    if (res.success) dispatched++;
+    else if (res.error) errors.push(`Discord: ${res.error}`);
+  }
+
+  // 5. ntfy.sh Push Alerts (supports multiple topics)
+  const ntfyTopics = parseRecipients(settings.ntfy_topic);
+  for (const topic of ntfyTopics) {
+    const res = await sendNtfyAlert(topic, {
+      productTitle: alertData.productTitle,
+      productUrl: alertData.productUrl,
+      previousPrice: alertData.previousPrice,
+      newPrice: alertData.newPrice,
+      lowestPrice: alertData.lowestPrice,
+      isAllTimeLow: alertData.isAllTimeLow,
+      isBackInStock: alertData.isBackInStock,
+    });
+    if (res.success) dispatched++;
+    else if (res.error) errors.push(`ntfy (${topic}): ${res.error}`);
   }
 
   return { dispatched, errors };

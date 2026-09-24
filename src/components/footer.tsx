@@ -20,6 +20,9 @@ export function Footer() {
           <Link href="/settings" className="hover:text-slate-300 transition-colors">
             Alerts
           </Link>
+          <Link href="/extension" className="hover:text-slate-300 transition-colors">
+            Extension
+          </Link>
         </div>
 
         <div className="flex items-center gap-1 text-slate-600">

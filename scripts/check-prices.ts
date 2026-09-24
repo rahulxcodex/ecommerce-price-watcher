@@ -63,6 +63,8 @@ async function main() {
     whatsapp_phone: process.env.WHATSAPP_PHONE || null,
     whatsapp_apikey: process.env.WHATSAPP_API_KEY || null,
     email: process.env.APPSCRIPT_TO_EMAIL || null,
+    discord_webhook: process.env.DISCORD_WEBHOOK_URL || null,
+    ntfy_topic: process.env.NTFY_TOPIC || null,
     notification_preference: 'all_time_low',
   };
 

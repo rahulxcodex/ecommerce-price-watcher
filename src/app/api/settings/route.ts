@@ -64,21 +64,44 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const body = await req.json();
 
-    const payload = {
+    const extendedPayload = {
       id: 'default',
       telegram_chat_id: body.telegram_chat_id?.trim() || null,
       whatsapp_phone: body.whatsapp_phone?.trim() || null,
       whatsapp_apikey: body.whatsapp_apikey?.trim() || null,
       email: body.email?.trim() || null,
+      discord_webhook: body.discord_webhook?.trim() || null,
+      ntfy_topic: body.ntfy_topic?.trim() || null,
       notification_preference: body.notification_preference || 'all_time_low',
       selected_bank_cards: body.selected_bank_cards || ['HDFC', 'ICICI', 'SBI', 'Axis'],
       updated_at: new Date().toISOString(),
     };
 
-    let res = await db.from('app_settings').upsert(payload).select().maybeSingle();
+    const corePayload = {
+      id: 'default',
+      telegram_chat_id: extendedPayload.telegram_chat_id,
+      whatsapp_phone: extendedPayload.whatsapp_phone,
+      whatsapp_apikey: extendedPayload.whatsapp_apikey,
+      email: extendedPayload.email,
+      notification_preference: extendedPayload.notification_preference,
+      selected_bank_cards: extendedPayload.selected_bank_cards,
+      updated_at: extendedPayload.updated_at,
+    };
+
+    // Try full extended payload first
+    let res = await db.from('app_settings').upsert(extendedPayload).select().maybeSingle();
+    
+    // If column missing in app_settings, try core payload
     if (res.error) {
-      // Fall back to household_settings table
-      res = await db.from('household_settings').upsert(payload).select().maybeSingle();
+      res = await db.from('app_settings').upsert(corePayload).select().maybeSingle();
+    }
+
+    // Fall back to household_settings
+    if (res.error) {
+      res = await db.from('household_settings').upsert(extendedPayload).select().maybeSingle();
+      if (res.error) {
+        res = await db.from('household_settings').upsert(corePayload).select().maybeSingle();
+      }
     }
 
     if (res.error) {
@@ -86,20 +109,20 @@ export async function POST(req: NextRequest) {
       try {
         await db.from('user_profiles').upsert({
           id: '00000000-0000-0000-0000-000000000000',
-          telegram_chat_id: payload.telegram_chat_id,
-          notification_preference: payload.notification_preference,
+          telegram_chat_id: corePayload.telegram_chat_id,
+          notification_preference: corePayload.notification_preference,
           updated_at: new Date().toISOString(),
         });
       } catch {}
 
       return NextResponse.json({
         success: true,
-        settings: payload,
-        notice: 'Saved with local fallback. Run migration 004 in Supabase for full persistence.',
+        settings: extendedPayload,
+        notice: 'Saved with local fallback.',
       });
     }
 
-    return NextResponse.json({ success: true, settings: res.data || payload });
+    return NextResponse.json({ success: true, settings: { ...extendedPayload, ...(res.data || {}) } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });

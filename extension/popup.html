@@ -2,28 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PriceWatcher</title>
+  <title>PriceWatcher Companion</title>
   <style>
     body {
-      width: 320px;
+      width: 330px;
       margin: 0;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #090d16;
+      background: #020617;
       color: #f1f5f9;
+      box-sizing: border-box;
     }
-    h2 {
-      font-size: 15px;
-      margin: 0 0 4px 0;
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 700;
       color: #10b981;
       display: flex;
       align-items: center;
       gap: 6px;
     }
-    p {
-      font-size: 11px;
+    .badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      font-weight: 600;
+      background: #0f172a;
+      border: 1px solid #334155;
       color: #94a3b8;
-      margin: 0 0 12px 0;
+    }
+    .badge.detected {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #34d399;
     }
     label {
       font-size: 11px;
@@ -32,7 +50,7 @@
       display: block;
       margin-bottom: 4px;
     }
-    input, select {
+    input {
       width: 100%;
       box-sizing: border-box;
       background: #0f172a;
@@ -42,12 +60,26 @@
       border-radius: 8px;
       font-size: 12px;
       margin-bottom: 10px;
+      transition: border-color 0.2s;
     }
-    input:focus, select:focus {
+    input:focus {
       outline: none;
       border-color: #10b981;
     }
-    button {
+    .url-preview {
+      font-size: 10px;
+      color: #94a3b8;
+      word-break: break-all;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      padding: 7px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      max-height: 48px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    button.btn-primary {
       width: 100%;
       background: #10b981;
       color: #022c22;
@@ -57,15 +89,35 @@
       border-radius: 8px;
       font-size: 13px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
-    button:hover {
+    button.btn-primary:hover {
       background: #059669;
     }
-    button:disabled {
-      background: #334155;
+    button.btn-primary:disabled {
+      background: #1e293b;
       color: #64748b;
       cursor: not-allowed;
+    }
+    .footer-links {
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+    .footer-links a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .footer-links a:hover {
+      text-decoration: underline;
     }
     #status {
       font-size: 11px;
@@ -73,6 +125,7 @@
       padding: 8px;
       border-radius: 6px;
       display: none;
+      line-height: 1.4;
     }
     .success {
       background: rgba(16, 185, 129, 0.15);
@@ -84,34 +137,34 @@
       border: 1px solid rgba(239, 68, 68, 0.3);
       color: #f87171;
     }
-    .url-preview {
-      font-size: 10px;
-      color: #64748b;
-      word-break: break-all;
-      background: #020617;
-      padding: 6px;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      max-height: 40px;
-      overflow: hidden;
-    }
   </style>
 </head>
 <body>
-  <h2>📉 PriceWatcher Companion</h2>
-  <p>Track this product in your personal dashboard</p>
+  <div class="header">
+    <div class="title">
+      <span>📉</span> PriceWatcher
+    </div>
+    <div id="store-badge" class="badge">Checking tab...</div>
+  </div>
 
-  <div id="url-box" class="url-preview">Detecting product URL...</div>
+  <div id="url-box" class="url-preview">Detecting current product URL...</div>
 
   <label for="targetPrice">Target Price in ₹ (Optional)</label>
-  <input type="number" id="targetPrice" placeholder="e.g. 1499">
+  <input type="number" id="targetPrice" placeholder="e.g. 19999" />
 
   <label for="appUrl">Tracker API URL</label>
-  <input type="text" id="appUrl" value="https://ecommerce-price-watcher-puce.vercel.app">
+  <input type="text" id="appUrl" value="https://ecommerce-price-watcher-puce.vercel.app" />
 
-  <button id="trackBtn">🚀 Track This Product</button>
+  <button id="trackBtn" class="btn-primary">
+    <span>🚀</span> Track This Product
+  </button>
 
   <div id="status"></div>
+
+  <div class="footer-links">
+    <a id="openDashboard">📊 Open Dashboard</a>
+    <span style="color: #64748b; font-size: 10px;">v1.1.0</span>
+  </div>
 
   <script src="popup.js"></script>
 </body>

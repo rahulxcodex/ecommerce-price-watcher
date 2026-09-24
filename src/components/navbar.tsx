@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellRing, PlusCircle, LayoutDashboard, Settings, TrendingDown } from 'lucide-react';
+import { BellRing, PlusCircle, LayoutDashboard, Settings, TrendingDown, Sparkles } from 'lucide-react';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -11,6 +11,7 @@ export function Navbar() {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/add', label: 'Track Product', icon: PlusCircle },
     { href: '/settings', label: 'Alert Settings', icon: Settings },
+    { href: '/extension', label: 'Extension', icon: Sparkles },
   ];
 
   return (

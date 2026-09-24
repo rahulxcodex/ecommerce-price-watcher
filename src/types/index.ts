@@ -40,6 +40,8 @@ export interface AppSettings {
   whatsapp_phone: string | null;
   whatsapp_apikey: string | null;
   email: string | null;
+  discord_webhook?: string | null;
+  ntfy_topic?: string | null;
   notification_preference: 'all_time_low' | 'any_drop' | 'never';
   selected_bank_cards: string[];
   updated_at?: string;
