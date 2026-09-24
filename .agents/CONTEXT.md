@@ -38,3 +38,4 @@ Amazon India, Flipkart, Meesho, Myntra, Ajio, Westside
 - [x] Phase 6: Full test suite passing (100% across 6 test suites, 70+ assertions).
 - [x] Phase 7: Pushed to GitHub `main` and deployed to Vercel production.
 - [x] Phase 8: Mobile-Friendly & Responsive UI Overhaul (Next.js Viewport export, mobile hamburger navigation drawer, touch-scrollable platform chips, responsive dashboard/detail/settings/add/extension pages, zero horizontal scroll, full build and test verification).
+- [x] Phase 9: Automated AJIO Extraction Unblocked & Deployed (Bypassed Akamai 403 on cloud servers using native internal search API endpoint, removed client-side price requirement gate, verified on Vercel deployment `dpl_29sjorACqS4qnYHNZPJWVCuwxSTA` with 200 OK).
