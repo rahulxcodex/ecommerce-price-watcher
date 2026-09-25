@@ -43,7 +43,7 @@ export function Navbar() {
     },
     {
       href: '/add',
-      label: 'Track URL',
+      label: 'Track',
       icon: PlusCircle,
       desc: 'Add custom product URL',
     },
@@ -95,49 +95,48 @@ export function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-sm text-xs font-medium whitespace-nowrap transition-colors ${
                     isActive
                       ? 'bg-surface-subtle text-champagne border border-gold/30'
                       : 'text-champagne-muted hover:text-champagne hover:bg-surface-subtle/60'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-gold' : 'text-champagne-muted'}`} />
+                  <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-gold' : 'text-champagne-muted'}`} />
                   <span>{link.label}</span>
                 </Link>
               );
             })}
 
-            <Link
-              href="/discover"
-              className="ml-2 flex items-center gap-1.5 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-3 py-1.5 rounded-sm text-xs transition-colors shadow-none tracking-tight"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Smart Search</span>
-            </Link>
-
             {/* Desktop Auth Section */}
             {user ? (
-              <div className="ml-2 pl-2 border-l border-surface-border flex items-center gap-1.5">
-                <div
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm border text-xs ${
-                    user.isCombined
-                      ? 'bg-surface-subtle border-gold/40 text-gold font-medium'
-                      : 'bg-surface border-surface-border text-champagne'
-                  }`}
-                  title={user.isCombined ? 'Special Combined Access (Shared Watchlist)' : `Signed in as ${user.name}`}
-                >
-                  {user.isCombined ? (
-                    <Crown className="w-3.5 h-3.5 text-gold" />
-                  ) : (
-                    <UserIcon className="w-3.5 h-3.5 text-champagne-muted" />
-                  )}
-                  <span className="text-xs">{user.name}</span>
-                  {user.isCombined && (
-                    <span className="text-[9px] bg-gold/15 text-gold px-1 rounded-sm uppercase tracking-wider font-mono">
-                      Joint
-                    </span>
-                  )}
-                </div>
+              <div className="ml-1.5 pl-2 border-l border-surface-border flex items-center gap-1.5">
+                {(() => {
+                  const displayName = user.name
+                    ? user.name.replace(/\s*\[.*?\]$/, '').split('@')[0].trim()
+                    : 'Account';
+                  return (
+                    <div
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm border text-xs whitespace-nowrap ${
+                        user.isCombined
+                          ? 'bg-surface-subtle border-gold/40 text-gold font-medium'
+                          : 'bg-surface border-surface-border text-champagne'
+                      }`}
+                      title={user.email ? `${user.name} (${user.email})` : user.name}
+                    >
+                      {user.isCombined ? (
+                        <Crown className="w-3.5 h-3.5 text-gold flex-shrink-0" />
+                      ) : (
+                        <UserIcon className="w-3.5 h-3.5 text-champagne-muted flex-shrink-0" />
+                      )}
+                      <span className="text-xs font-medium">{displayName}</span>
+                      {user.isCombined && (
+                        <span className="text-[9px] bg-gold/15 text-gold px-1 rounded-sm uppercase tracking-wider font-mono">
+                          Joint
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <button
                   type="button"
@@ -152,7 +151,7 @@ export function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="ml-2 flex items-center gap-1.5 bg-surface hover:bg-surface-subtle border border-surface-border text-champagne px-2.5 py-1.5 rounded-sm text-xs transition-colors"
+                className="ml-1.5 flex items-center gap-1.5 bg-surface hover:bg-surface-subtle border border-surface-border text-champagne px-2.5 py-1.5 rounded-sm text-xs transition-colors whitespace-nowrap"
               >
                 <KeyRound className="w-3.5 h-3.5 text-gold" />
                 <span>Sign In</span>
@@ -203,7 +202,7 @@ export function Navbar() {
                 </div>
                 <div>
                   <div className="font-medium text-champagne text-xs flex items-center gap-1.5">
-                    <span>{user.name}</span>
+                    <span>{user.name ? user.name.replace(/\s*\[.*?\]$/, '').split('@')[0].trim() : 'Account'}</span>
                     {user.isCombined && (
                       <span className="text-[9px] bg-gold/15 text-gold px-1 rounded-sm uppercase tracking-wider font-mono">
                         Joint
@@ -211,7 +210,7 @@ export function Navbar() {
                     )}
                   </div>
                   <span className="text-[10px] text-champagne-faint">
-                    {user.isCombined ? 'Shared Watchlist' : 'Personal Account'}
+                    {user.email || (user.isCombined ? 'Shared Watchlist' : 'Personal Account')}
                   </span>
                 </div>
               </div>
