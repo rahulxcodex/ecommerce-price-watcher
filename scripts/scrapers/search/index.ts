@@ -8,7 +8,7 @@ import { searchWestside } from './westside-search';
 import { sanitizeSearchQuery } from './search-utils';
 import { computeParetoFrontier } from '@/lib/dsa';
 
-export async function searchPlatform(platform: Platform, query: string, limit: number = 15): Promise<DiscoveryResult[]> {
+export async function searchPlatform(platform: Platform, query: string, limit: number = 10): Promise<DiscoveryResult[]> {
   const sanitized = sanitizeSearchQuery(query);
   if (!sanitized) return [];
 

@@ -75,10 +75,12 @@ export function ProductCard({ product, onProductUpdated }: ProductCardProps) {
           <div className="flex items-center gap-1.5">
             <PlatformBadge platform={currentProduct.platform} />
             {currentProduct.created_by_name && (
-              <span className="text-[9px] font-mono tracking-wider uppercase px-1.5 py-0.5 rounded-sm border bg-surface-subtle text-champagne-muted border-surface-border">
-                {currentProduct.created_by_name.toLowerCase().includes('rahul')
-                  ? 'Shared Space'
-                  : 'Personal'}
+              <span
+                title={`Tracked by ${currentProduct.created_by_name}`}
+                className="inline-flex items-center gap-1 text-[9px] font-mono tracking-wide px-1.5 py-0.5 rounded-sm border bg-surface-subtle text-champagne border-surface-border"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-gold"></span>
+                <span>Added by {currentProduct.created_by_name}</span>
               </span>
             )}
           </div>

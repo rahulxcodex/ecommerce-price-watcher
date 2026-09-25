@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { getServiceSupabase } from '@/lib/supabase';
 import { supabase as publicSupabase } from '@/lib/supabase';
 import { scrapeAmazon } from '@scripts/scrapers/amazon';
@@ -12,7 +13,11 @@ import { delay } from '@scripts/scrapers/utils';
 import { dispatchAlerts, sendScraperFailureAlert, sendScraperStaleAlert } from '@scripts/notify';
 import { validateScrapedPrice } from '@/lib/security';
 import { Product, AppSettings } from '@/types';
-import { getAdminEmail } from '@/lib/constants';
+import {
+  SCRAPER_STALE_THRESHOLD_HOURS,
+  SCRAPER_EMERGENCY_THRESHOLD_HOURS,
+  getAdminEmail,
+} from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60s for serverless execution
@@ -49,6 +54,19 @@ export async function POST(req: NextRequest) {
           error: 'Unauthorized: Please log in to refresh prices.',
         },
         { status: 401 }
+      );
+    }
+
+    // Rate limit manual scraper triggers: max 6 triggers per minute
+    const rateKey = `rate:scraper:trigger:${session.userId || 'anon'}`;
+    const rateCheck = await checkRateLimit(rateKey, 6, 60);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Trigger rate limited. Please wait ${rateCheck.retryAfterSeconds} seconds before triggering again.`,
+        },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
       );
     }
 
@@ -89,16 +107,19 @@ export async function POST(req: NextRequest) {
 
     const products = productsData as Product[];
 
-    // 3. Watchdog check: Has scraping completed in the last 3 hours?
+    // 3. Watchdog check: Has scraping completed in the last threshold hours?
     const checkedTimestamps = products
-      .map((p) => (p.last_checked_at ? new Date(p.last_checked_at).getTime() : 0))
+      .map((p) => {
+        const t = p.last_successful_scrape_at || p.last_checked_at;
+        return t ? new Date(t).getTime() : 0;
+      })
       .filter((t) => t > 0);
     const mostRecentCheck = checkedTimestamps.length > 0 ? Math.max(...checkedTimestamps) : 0;
 
     if (mostRecentCheck > 0) {
       const elapsedHours = (Date.now() - mostRecentCheck) / (1000 * 60 * 60);
-      if (elapsedHours >= 5.0) {
-        console.warn(`🚨 WATCHDOG: Last scrape was ${elapsedHours.toFixed(1)}h ago (>= 5h threshold). Dispatching alert...`);
+      if (elapsedHours >= SCRAPER_STALE_THRESHOLD_HOURS) {
+        console.warn(`🚨 WATCHDOG: Last scrape was ${elapsedHours.toFixed(1)}h ago (>= ${SCRAPER_STALE_THRESHOLD_HOURS}h threshold). Dispatching alert...`);
         await sendScraperStaleAlert({
           hoursSinceLastScrape: Math.round(elapsedHours * 10) / 10,
           lastScrapedAt: new Date(mostRecentCheck).toISOString(),
@@ -282,6 +303,7 @@ export async function POST(req: NextRequest) {
           lowest_price: newLowest,
           highest_price: newHighest,
           last_checked_at: new Date().toISOString(),
+          last_successful_scrape_at: new Date().toISOString(),
           last_price_drop_at: isPriceDrop ? new Date().toISOString() : product.last_price_drop_at,
           last_alerted_price: newLastAlerted,
           check_status: 'ok',

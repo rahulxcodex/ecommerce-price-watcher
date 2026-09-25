@@ -137,6 +137,7 @@ export interface DiscoveryResult {
   productUrl: string;
   rating?: number;
   reviewCount?: number;
+  boughtCount?: string;
   platform: Platform;
   isParetoOptimal?: boolean;
   isAlreadyTracked?: boolean;

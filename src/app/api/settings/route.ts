@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
 import { validateSettingsPayload } from '@/lib/security';
 import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { AppSettings } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -105,6 +106,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized: Please sign in to configure notification settings.' },
         { status: 401 }
+      );
+    }
+
+    const rateCheck = await checkRateLimit(`rate:settings:post:${session.userId}`, 10, 60);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: `Too many settings updates. Please wait ${rateCheck.retryAfterSeconds} seconds.` },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
       );
     }
 

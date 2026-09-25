@@ -9,6 +9,7 @@ import { scrapeMyntra } from '@scripts/scrapers/myntra';
 import { scrapeAjio } from '@scripts/scrapers/ajio';
 import { scrapeWestside } from '@scripts/scrapers/westside';
 import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -177,6 +178,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'anon';
+    const rateCheck = await checkRateLimit(`rate:products:post:${ip}`, 15, 60);
+    if (!rateCheck.allowed) {
+      return corsResponse(
+        { error: `Too many requests. Please wait ${rateCheck.retryAfterSeconds} seconds before adding more products.` },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } },
+        req
+      );
+    }
+
     const body = await req.json();
     const {
       url: rawUrl,

@@ -9,6 +9,7 @@ const testSuites = [
   'tests/discovery-and-smart-filtering.test.ts',
   'tests/hardening-audit.test.ts',
   'tests/production-hardening.test.ts',
+  'tests/scraper-fallback-integrity.test.ts',
 ];
 
 console.log('🚀 Running Complete Automated Test Suite Orchestrator...\n');

@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     // 1. Parse request body
     const body = await req.json().catch(() => ({}));
-    const { platform, query, limit = 15, brand, isFilterExpansion = false } = body;
+    const { platform, query, limit = 10, brand, isFilterExpansion = false } = body;
 
     // 2. Identify client for rate limiting (higher limit for filter expansions & authenticated users)
     const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       ? `${cleanBrand} ${cleanQuery}`
       : cleanQuery;
 
-    const boundedLimit = Math.min(25, Math.max(5, Number(limit) || 15));
+    const boundedLimit = Math.min(10, Math.max(3, Number(limit) || 10));
     const results = await searchPlatform(platform as Platform, targetedQuery, boundedLimit);
 
     // 4. Cross-reference with existing watchlist

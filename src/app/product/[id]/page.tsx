@@ -231,10 +231,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <PlatformBadge platform={product.platform} />
                 {product.created_by_name && (
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm border bg-surface-subtle text-champagne-muted border-surface-border">
-                    {product.created_by_name.toLowerCase().includes('rahul')
-                      ? 'Shared Space'
-                      : 'Personal'}
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded-sm border bg-surface-subtle text-champagne border-surface-border">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gold"></span>
+                    <span>Added by {product.created_by_name}</span>
                   </span>
                 )}
                 {isAllTimeLow && (
@@ -359,6 +358,111 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                   </div>
                 </div>
               )}
+              {/* Target Price Alert Configuration Widget */}
+              <div className="mt-4 p-3.5 rounded-sm bg-obsidian border border-surface-border text-xs font-mono space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-gold font-medium">
+                    <BellRing className="w-3.5 h-3.5 text-gold" />
+                    <span>Price Alert Target</span>
+                  </span>
+                  {product.target_price ? (
+                    <span className="text-[11px] text-sage">
+                      Target: {formatPrice(product.target_price, product.currency)}{' '}
+                      ({Math.round(((product.current_price - product.target_price) / product.current_price) * 100)}% drop)
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-champagne-faint">No alert target set</span>
+                  )}
+                </div>
+
+                <form onSubmit={handleUpdateTarget} className="flex flex-wrap items-center gap-2 pt-1">
+                  <div className="relative flex-1 min-w-[130px]">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-champagne-faint text-xs">₹</span>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={targetInput}
+                      onChange={(e) => setTargetInput(e.target.value)}
+                      placeholder={`Target price (e.g. ${Math.round(product.current_price * 0.9)})`}
+                      className="w-full bg-surface border border-surface-border rounded-sm pl-6 pr-3 py-1.5 text-xs text-champagne placeholder:text-champagne-faint focus:outline-none focus:border-gold/50"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSavingTarget}
+                    className="px-3 py-1.5 rounded-sm bg-gold hover:bg-gold-hover text-obsidian font-bold text-xs transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {isSavingTarget ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Save className="w-3 h-3" />
+                    )}
+                    <span>Save Target</span>
+                  </button>
+
+                  {product.target_price && (
+                    <button
+                      type="button"
+                      disabled={isSavingTarget}
+                      onClick={async () => {
+                        setIsSavingTarget(true);
+                        try {
+                          const res = await fetch(`/api/products/${id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ target_price: null }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error || 'Failed to clear target');
+                          setProduct(data.product);
+                          setTargetInput('');
+                          setMessage({ type: 'success', text: 'Target price alert removed.' });
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : String(err);
+                          setMessage({ type: 'error', text: msg });
+                        } finally {
+                          setIsSavingTarget(false);
+                        }
+                      }}
+                      className="px-2.5 py-1.5 rounded-sm bg-surface hover:bg-surface-hover border border-surface-border text-champagne-faint hover:text-terracotta text-xs transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </form>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-champagne-faint pt-0.5">
+                  <span className="text-champagne-faint">Presets:</span>
+                  {[
+                    { label: '5% Drop', pct: 0.95 },
+                    { label: '10% Drop', pct: 0.9 },
+                    { label: '15% Drop', pct: 0.85 },
+                  ].map((preset) => {
+                    const presetPrice = Math.round(product.current_price * preset.pct);
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setTargetInput(presetPrice.toString())}
+                        className="px-1.5 py-0.5 rounded-sm bg-surface-subtle hover:bg-surface border border-surface-border hover:border-gold/30 text-champagne-muted hover:text-champagne transition-colors"
+                      >
+                        {preset.label} (₹{presetPrice.toLocaleString('en-IN')})
+                      </button>
+                    );
+                  })}
+                  {product.lowest_price > 0 && product.lowest_price < product.current_price && (
+                    <button
+                      type="button"
+                      onClick={() => setTargetInput(product.lowest_price.toString())}
+                      className="px-1.5 py-0.5 rounded-sm bg-surface-subtle hover:bg-surface border border-surface-border hover:border-gold/30 text-gold transition-colors"
+                    >
+                      At Low (₹{product.lowest_price.toLocaleString('en-IN')})
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Quick Actions */}
@@ -439,44 +543,6 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
       {/* Price History Chart */}
       <PriceChart history={history} lowestPrice={product.lowest_price} />
-
-      {/* Target Price Configuration */}
-      <div className="bg-surface border border-surface-border p-4 sm:p-6 rounded-sm">
-        <div className="flex items-center gap-2 mb-2">
-          <BellRing className="w-4 h-4 text-gold" />
-          <h2 className="font-display text-lg text-champagne">Set Custom Price Alert</h2>
-        </div>
-        <p className="text-xs text-champagne-faint mb-4 leading-relaxed">
-          In addition to the automatic All-Time Low notification, get an instant Telegram alert if the price dips below your specified target.
-        </p>
-
-        <form onSubmit={handleUpdateTarget} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="relative flex-1">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-champagne-faint font-mono text-sm">₹</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={targetInput}
-              onChange={(e) => setTargetInput(e.target.value)}
-              placeholder="Enter target price threshold..."
-              className="w-full bg-obsidian border border-surface-border rounded-sm pl-8 pr-4 py-2 text-xs text-champagne placeholder:text-champagne-faint focus:outline-none focus:border-gold/50 font-mono"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isSavingTarget}
-            className="flex items-center justify-center gap-2 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-4 py-2 rounded-sm text-xs transition-colors"
-          >
-            {isSavingTarget ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
-            <span>Save Alert</span>
-          </button>
-        </form>
-      </div>
     </div>
   );
 }

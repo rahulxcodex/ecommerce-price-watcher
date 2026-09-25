@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
 import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { validateAndSanitizeUrl } from '@/lib/security';
 import { Platform } from '@/types';
 
@@ -16,6 +17,15 @@ function getDb() {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'anon';
+    const rateCheck = await checkRateLimit(`rate:discover:bulk:${ip}`, 6, 60);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: `Rate limit exceeded. Please wait ${rateCheck.retryAfterSeconds} seconds.` },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
+      );
+    }
+
     const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
     const session = verifySessionToken(token || '');
     const userId = session?.userId || null;

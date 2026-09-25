@@ -726,3 +726,142 @@ export async function dispatchAlerts(
 
   return { dispatched, errors };
 }
+
+/**
+ * Queues a failed or pending notification delivery into notification_outbox for guaranteed retry
+ */
+export async function queueNotificationOutbox(
+  supabaseClient: any,
+  params: {
+    alertEventId?: string | null;
+    channel: 'telegram' | 'whatsapp' | 'email' | 'discord' | 'ntfy' | 'web_push';
+    recipient: string;
+    payload: Record<string, unknown>;
+    error?: string;
+  }
+) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from('notification_outbox').insert({
+      alert_event_id: params.alertEventId || null,
+      channel: params.channel,
+      recipient: params.recipient,
+      payload: params.payload,
+      status: 'pending',
+      attempts: 1,
+      last_error: params.error || null,
+      last_attempt_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.warn('[notification_outbox] Queue insertion notice:', e);
+  }
+}
+
+/**
+ * Retries all pending and failed notifications from notification_outbox with exponential backoff
+ */
+export async function processNotificationOutbox(
+  supabaseClient: any
+): Promise<{ retried: number; recovered: number; abandoned: number }> {
+  if (!supabaseClient) return { retried: 0, recovered: 0, abandoned: 0 };
+  let retried = 0;
+  let recovered = 0;
+  let abandoned = 0;
+
+  try {
+    const { data: pendingItems, error } = await supabaseClient
+      .from('notification_outbox')
+      .select('*')
+      .in('status', ['pending', 'failed'])
+      .lt('attempts', 3)
+      .order('created_at', { ascending: true })
+      .limit(20);
+
+    if (error || !pendingItems || pendingItems.length === 0) {
+      return { retried, recovered, abandoned };
+    }
+
+    for (const item of pendingItems) {
+      retried++;
+      const payload = item.payload;
+      let res: { success: boolean; error?: string } = { success: false, error: 'Unknown channel' };
+
+      if (item.channel === 'telegram') {
+        res = await sendTelegramAlert({
+          chatId: item.recipient,
+          productTitle: payload.productTitle,
+          productUrl: payload.productUrl,
+          previousPrice: payload.previousPrice,
+          newPrice: payload.newPrice,
+          lowestPrice: payload.lowestPrice,
+          currency: payload.currency,
+          isAllTimeLow: payload.isAllTimeLow,
+          isBackInStock: payload.isBackInStock,
+        });
+      } else if (item.channel === 'whatsapp' && payload.apiKey) {
+        res = await sendWhatsAppAlert({
+          phone: item.recipient,
+          apiKey: payload.apiKey,
+          productTitle: payload.productTitle,
+          productUrl: payload.productUrl,
+          previousPrice: payload.previousPrice,
+          newPrice: payload.newPrice,
+          currency: payload.currency,
+          isAllTimeLow: payload.isAllTimeLow,
+          isBackInStock: payload.isBackInStock,
+        });
+      } else if (item.channel === 'email') {
+        res = await sendEmailAlert({
+          to: item.recipient,
+          productTitle: payload.productTitle,
+          productUrl: payload.productUrl,
+          previousPrice: payload.previousPrice,
+          newPrice: payload.newPrice,
+          lowestPrice: payload.lowestPrice,
+          currency: payload.currency,
+          isAllTimeLow: payload.isAllTimeLow,
+          isBackInStock: payload.isBackInStock,
+          imageUrl: payload.imageUrl,
+          platform: payload.platform,
+        });
+      } else if (item.channel === 'discord') {
+        res = await sendDiscordAlert(item.recipient, payload as any);
+      } else if (item.channel === 'ntfy') {
+        res = await sendNtfyAlert(item.recipient, payload as any);
+      }
+
+      const nextAttempts = (item.attempts || 0) + 1;
+      const nowIso = new Date().toISOString();
+
+      if (res.success) {
+        recovered++;
+        await supabaseClient
+          .from('notification_outbox')
+          .update({
+            status: 'sent',
+            sent_at: nowIso,
+            last_attempt_at: nowIso,
+            attempts: nextAttempts,
+            last_error: null,
+          })
+          .eq('id', item.id);
+      } else {
+        const isMaxed = nextAttempts >= (item.max_attempts || 3);
+        if (isMaxed) abandoned++;
+        await supabaseClient
+          .from('notification_outbox')
+          .update({
+            status: isMaxed ? 'abandoned' : 'failed',
+            last_attempt_at: nowIso,
+            attempts: nextAttempts,
+            last_error: res.error || 'Retry attempt failed',
+          })
+          .eq('id', item.id);
+      }
+    }
+  } catch (err) {
+    console.warn('[notification_outbox] Process outbox notice:', err);
+  }
+
+  return { retried, recovered, abandoned };
+}

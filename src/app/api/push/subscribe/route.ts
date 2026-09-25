@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
 import { validatePushEndpoint } from '@/lib/security';
 import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized: Authentication required to register web push subscriptions.' },
         { status: 401 }
+      );
+    }
+
+    const rateCheck = await checkRateLimit(`rate:push:sub:${session.userId}`, 8, 60);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: `Too many subscription attempts. Please wait ${rateCheck.retryAfterSeconds} seconds.` },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
       );
     }
 

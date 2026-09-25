@@ -21,7 +21,7 @@ import {
   SlidersHorizontal,
   Layers,
   ArrowRight,
-  Zap,
+  RotateCcw,
 } from 'lucide-react';
 import { Platform, DiscoveryResult, SmartFilterFacets, SearchHistoryItem } from '@/types';
 import { PlatformBadge } from '@/components/platform-badge';
@@ -54,11 +54,6 @@ export default function DiscoverPage() {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [onlyPareto, setOnlyPareto] = useState(false);
 
-  // Dynamic scraping state for filter-driven SKU expansion
-  const [isDynamicallyScraping, setIsDynamicallyScraping] = useState(false);
-  const [dynamicScrapeStatus, setDynamicScrapeStatus] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
-  const scrapedBrandsRef = useRef<Set<string>>(new Set());
-
   // Product selection for bulk monitoring
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [isAddingBulk, setIsAddingBulk] = useState(false);
@@ -85,95 +80,6 @@ export default function DiscoverPage() {
     loadHistory();
   }, []);
 
-  const dynamicallyScrapeMoreForFilter = async (targetBrand?: string) => {
-    if (!query.trim() || isDynamicallyScraping) return;
-
-    const brandToScrape = targetBrand?.trim();
-    if (brandToScrape) {
-      if (scrapedBrandsRef.current.has(brandToScrape.toLowerCase())) {
-        return;
-      }
-      scrapedBrandsRef.current.add(brandToScrape.toLowerCase());
-    }
-
-    setIsDynamicallyScraping(true);
-    setDynamicScrapeStatus({
-      message: brandToScrape
-        ? `Extracting more "${brandToScrape}" SKUs from ${platform}...`
-        : `Extracting additional candidate SKUs from ${platform}...`,
-      type: 'info',
-    });
-
-    try {
-      const res = await fetch('/api/discover/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          platform,
-          query,
-          brand: brandToScrape,
-          isFilterExpansion: true,
-          limit: 20,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to dynamically scrape more SKUs');
-      }
-
-      const newResults: DiscoveryResult[] = data.results || [];
-      if (newResults.length === 0) {
-        setDynamicScrapeStatus({
-          message: `Storefront returned no additional SKUs for this filter.`,
-          type: 'info',
-        });
-        return;
-      }
-
-      setSearchResults((prev) => {
-        const existingUrls = new Set(prev.map((p) => p.productUrl));
-        const added = newResults.filter((p) => !existingUrls.has(p.productUrl));
-        if (added.length === 0) {
-          setDynamicScrapeStatus({
-            message: `All discovered ${brandToScrape || ''} SKUs are already in your list.`,
-            type: 'info',
-          });
-          return prev;
-        }
-
-        const combined = [...prev, ...added];
-        const { paretoIndices } = computeParetoFrontier(combined);
-        const updated = combined.map((p) => ({
-          ...p,
-          isParetoOptimal: paretoIndices.has(p.id),
-        }));
-
-        setDynamicScrapeStatus({
-          message: `✨ Dynamically scraped ${added.length} additional SKUs from ${platform}!`,
-          type: 'success',
-        });
-
-        setSelectedProductIds((prevSelected) => {
-          const next = new Set(prevSelected);
-          added.forEach((p) => {
-            if (!p.isAlreadyTracked) next.add(p.id);
-          });
-          return next;
-        });
-
-        return updated;
-      });
-    } catch (err: unknown) {
-      setDynamicScrapeStatus({
-        message: err instanceof Error ? err.message : 'Dynamic scrape failed',
-        type: 'error',
-      });
-    } finally {
-      setIsDynamicallyScraping(false);
-    }
-  };
-
   const handleSearch = async (e?: React.FormEvent, overrideQuery?: string, overridePlatform?: Platform) => {
     if (e) e.preventDefault();
     const q = (overrideQuery ?? query).trim();
@@ -183,8 +89,6 @@ export default function DiscoverPage() {
     setIsSearching(true);
     setError(null);
     setBulkAddResult(null);
-    setDynamicScrapeStatus(null);
-    scrapedBrandsRef.current.clear();
     setSelectedProductIds(new Set());
     // Reset filters for new search
     setSelectedBrands(new Set());
@@ -198,7 +102,7 @@ export default function DiscoverPage() {
       const res = await fetch('/api/discover/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: plat, query: q, limit: 15 }),
+        body: JSON.stringify({ platform: plat, query: q, limit: 10 }),
       });
 
       const data = await res.json();
@@ -250,9 +154,12 @@ export default function DiscoverPage() {
   // Client-side filtering over discovered products
   const filteredResults = useMemo(() => {
     return searchResults.filter((p) => {
-      // Brand filter
+      // Brand filter (case-insensitive)
       if (selectedBrands.size > 0) {
-        if (!p.brand || !selectedBrands.has(p.brand)) return false;
+        const pBrand = p.brand?.trim().toLowerCase();
+        if (!pBrand || !Array.from(selectedBrands).some((b) => b.trim().toLowerCase() === pBrand)) {
+          return false;
+        }
       }
       // Price range filter
       if (minPrice !== null && p.price < minPrice) return false;
@@ -273,6 +180,10 @@ export default function DiscoverPage() {
       return true;
     });
   }, [searchResults, selectedBrands, minPrice, maxPrice, selectedDiscount, selectedRating, onlyPareto]);
+
+  const visibleSelectedCount = useMemo(() => {
+    return filteredResults.filter((p) => selectedProductIds.has(p.id)).length;
+  }, [filteredResults, selectedProductIds]);
 
   const toggleSelectProduct = (id: string) => {
     setSelectedProductIds((prev) => {
@@ -619,12 +530,10 @@ export default function DiscoverPage() {
                             onChange={() => {
                               setSelectedBrands((prev) => {
                                 const next = new Set(prev);
-                                const wasChecked = next.has(b.name);
-                                if (wasChecked) {
+                                if (next.has(b.name)) {
                                   next.delete(b.name);
                                 } else {
                                   next.add(b.name);
-                                  dynamicallyScrapeMoreForFilter(b.name);
                                 }
                                 return next;
                               });
@@ -738,7 +647,9 @@ export default function DiscoverPage() {
                   ) : (
                     <Square className="w-4 h-4 text-champagne-faint" />
                   )}
-                  <span>Select All ({selectedProductIds.size} selected)</span>
+                  <span>
+                    Select All ({visibleSelectedCount} of {filteredResults.filter((p) => !p.isAlreadyTracked).length} selected)
+                  </span>
                 </button>
                 <span className="text-champagne-faint text-xs">•</span>
                 <span className="text-xs text-champagne-faint font-mono">
@@ -747,16 +658,17 @@ export default function DiscoverPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => dynamicallyScrapeMoreForFilter(Array.from(selectedBrands)[0])}
-                  disabled={isDynamicallyScraping}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-surface-subtle hover:bg-surface-hover border border-gold/40 text-gold text-xs font-mono transition-colors disabled:opacity-50 whitespace-nowrap cursor-pointer"
-                  title="Scrape and extract more SKUs matching this query and active filters"
-                >
-                  <Zap className={`w-3.5 h-3.5 ${isDynamicallyScraping ? 'animate-spin' : ''}`} />
-                  <span>{isDynamicallyScraping ? 'Scraping More SKUs...' : 'Scrape More SKUs'}</span>
-                </button>
+                {(selectedBrands.size > 0 || minPrice !== null || maxPrice !== null || selectedDiscount !== null || selectedRating !== null || onlyPareto) && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-sm bg-surface-subtle hover:bg-surface-hover border border-surface-border text-champagne-faint hover:text-champagne text-xs font-mono transition-colors cursor-pointer"
+                    title="Reset active filters"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Filters</span>
+                  </button>
+                )}
 
                 {selectedProductIds.size > 0 && (
                   <button
@@ -775,31 +687,6 @@ export default function DiscoverPage() {
                 )}
               </div>
             </div>
-
-            {/* Dynamic Scrape Feedback Banner */}
-            {dynamicScrapeStatus && (
-              <div
-                className={`p-3 rounded-sm text-xs border flex items-center justify-between gap-2 ${
-                  dynamicScrapeStatus.type === 'success'
-                    ? 'bg-sage/10 border-sage/30 text-sage'
-                    : dynamicScrapeStatus.type === 'error'
-                    ? 'bg-terracotta/10 border-terracotta/30 text-terracotta'
-                    : 'bg-gold/10 border-gold/30 text-gold'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5 flex-shrink-0 animate-pulse" />
-                  <span>{dynamicScrapeStatus.message}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setDynamicScrapeStatus(null)}
-                  className="text-xs text-champagne-faint hover:text-champagne px-1"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
 
             {/* Product Card Grid */}
             {filteredResults.length > 0 ? (
@@ -892,13 +779,26 @@ export default function DiscoverPage() {
                           )}
                         </div>
 
-                        {/* Rating snippet */}
-                        {product.rating && (
-                          <div className="mt-1 flex items-center gap-1 text-[11px] font-mono text-champagne-muted">
-                            <Star className="w-3 h-3 text-gold fill-current" />
-                            <span>{product.rating}</span>
-                            {product.reviewCount && (
-                              <span className="text-champagne-faint">({product.reviewCount})</span>
+                        {/* Rating & Social Proof (Buys) Bar */}
+                        {(product.rating || product.boughtCount) && (
+                          <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+                            {product.rating ? (
+                              <div className="flex items-center gap-1 text-[11px] font-mono text-champagne-muted">
+                                <Star className="w-3 h-3 text-gold fill-current" />
+                                <span className="font-semibold text-champagne">{product.rating}</span>
+                                {product.reviewCount !== undefined && (
+                                  <span className="text-champagne-faint">({product.reviewCount.toLocaleString()})</span>
+                                )}
+                              </div>
+                            ) : (
+                              <div />
+                            )}
+
+                            {product.boughtCount && (
+                              <span className="text-[10px] font-mono text-gold/90 bg-gold/10 border border-gold/25 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
+                                <Flame className="w-2.5 h-2.5 text-gold" />
+                                <span>{product.boughtCount}</span>
+                              </span>
                             )}
                           </div>
                         )}
@@ -928,24 +828,16 @@ export default function DiscoverPage() {
               <div className="bg-surface border border-surface-border p-8 text-center rounded-sm space-y-3">
                 <p className="text-sm font-medium text-champagne">No products in current batch match your active filters.</p>
                 <p className="text-xs text-champagne-faint font-mono">
-                  Dynamically extract more candidate SKUs directly from {platform} matching your filter criteria.
+                  Try adjusting or clearing your active brand, price, discount, or rating filters to view all {searchResults.length} SKUs.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => dynamicallyScrapeMoreForFilter(Array.from(selectedBrands)[0])}
-                    disabled={isDynamicallyScraping}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-gold hover:bg-gold-hover text-obsidian rounded-sm text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    <Zap className={`w-3.5 h-3.5 ${isDynamicallyScraping ? 'animate-spin' : ''}`} />
-                    <span>{isDynamicallyScraping ? 'Dynamically Scraping...' : 'Dynamically Scrape More Matching SKUs'}</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={clearAllFilters}
-                    className="px-3 py-2 bg-surface hover:bg-surface-subtle border border-surface-border text-champagne-muted hover:text-champagne rounded-sm text-xs font-mono transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-gold hover:bg-gold-hover text-obsidian rounded-sm text-xs font-semibold transition-colors cursor-pointer"
                   >
-                    Clear all filters
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Clear All Filters</span>
                   </button>
                 </div>
               </div>

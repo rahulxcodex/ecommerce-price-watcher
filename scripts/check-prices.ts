@@ -5,12 +5,14 @@ import {
   dispatchAlerts,
   sendScraperStaleAlert,
   sendScraperBatchFailureSummaryAlert,
+  processNotificationOutbox,
 } from './notify';
 import { sendWebPushToAll } from '@/lib/web-push';
 import { validateScrapedPrice } from '@/lib/security';
 import { Product, AppSettings, ScrapeResult } from '@/types';
 import {
   SCRAPER_STALE_THRESHOLD_HOURS,
+  SCRAPER_EMERGENCY_THRESHOLD_HOURS,
   SCRAPER_BATCH_SIZE,
   MAX_SCRAPER_WORKERS,
   PLATFORM_PACING_MIN_MS,
@@ -42,6 +44,71 @@ async function withPlatformLock<T>(platform: string, task: () => Promise<T>): Pr
     if (platformQueues.get(platform) === next) {
       platformQueues.delete(platform);
     }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Per-Platform Circuit Breaker
+// -----------------------------------------------------------------------------
+interface PlatformCircuitBreaker {
+  consecutiveFailures: number;
+  trippedUntil: number;
+  state: 'closed' | 'open' | 'half_open';
+}
+
+const CIRCUIT_TRIP_THRESHOLD = 3;
+const CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000; // 5-minute cooldown before probe
+const platformCircuitBreakers = new Map<string, PlatformCircuitBreaker>();
+
+export function checkPlatformCircuit(platform: string): { isTripped: boolean; reason?: string } {
+  const cb = platformCircuitBreakers.get(platform);
+  if (!cb || cb.state === 'closed') {
+    return { isTripped: false };
+  }
+
+  const now = Date.now();
+  if (cb.state === 'open') {
+    if (now >= cb.trippedUntil) {
+      cb.state = 'half_open';
+      console.log(`🔌 Circuit breaker for [${platform.toUpperCase()}] transitioning to HALF-OPEN (testing 1 probe request).`);
+      return { isTripped: false };
+    }
+    const remainingSec = Math.ceil((cb.trippedUntil - now) / 1000);
+    return {
+      isTripped: true,
+      reason: `Platform circuit breaker OPEN (${cb.consecutiveFailures} consecutive blocks). Cooldown active for ${remainingSec}s.`,
+    };
+  }
+
+  return { isTripped: false };
+}
+
+export function recordPlatformCircuitSuccess(platform: string) {
+  const cb = platformCircuitBreakers.get(platform);
+  if (cb) {
+    if (cb.state !== 'closed') {
+      console.log(`✅ Circuit breaker for [${platform.toUpperCase()}] CLOSED (probe request succeeded).`);
+    }
+    cb.consecutiveFailures = 0;
+    cb.state = 'closed';
+  }
+}
+
+export function recordPlatformCircuitFailure(platform: string, errorMessage?: string) {
+  let cb = platformCircuitBreakers.get(platform);
+  if (!cb) {
+    cb = { consecutiveFailures: 0, trippedUntil: 0, state: 'closed' };
+    platformCircuitBreakers.set(platform, cb);
+  }
+
+  cb.consecutiveFailures += 1;
+
+  if (cb.consecutiveFailures >= CIRCUIT_TRIP_THRESHOLD || cb.state === 'half_open') {
+    cb.state = 'open';
+    cb.trippedUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+    console.warn(
+      `🚨 [CIRCUIT BREAKER TRIPPED] Storefront [${platform.toUpperCase()}]: ${cb.consecutiveFailures} consecutive errors. Short-circuiting subsequent ${platform.toUpperCase()} requests for 5 minutes. Reason: ${errorMessage || 'Repeated failure'}`
+    );
   }
 }
 
@@ -122,26 +189,39 @@ async function main() {
   }
 
   // 3. Watchdog Liveness Check on most recent scrape
-  const { data: latestProduct } = await supabase
+  const { data: latestProducts } = await supabase
     .from('products')
     .select('last_successful_scrape_at, last_checked_at')
     .eq('is_active', true)
     .order('last_checked_at', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(10);
 
-  if (latestProduct) {
-    const lastScrape = latestProduct.last_successful_scrape_at || latestProduct.last_checked_at;
-    if (lastScrape) {
-      const elapsedHours = (Date.now() - new Date(lastScrape).getTime()) / (1000 * 60 * 60);
+  if (latestProducts && latestProducts.length > 0) {
+    const timestamps = latestProducts
+      .map((p) => {
+        const t = p.last_successful_scrape_at || p.last_checked_at;
+        return t ? new Date(t).getTime() : 0;
+      })
+      .filter((t) => t > 0);
+
+    const mostRecentTimestamp = timestamps.length > 0 ? Math.max(...timestamps) : 0;
+    if (mostRecentTimestamp > 0) {
+      const elapsedHours = (Date.now() - mostRecentTimestamp) / (1000 * 60 * 60);
+
+      if (elapsedHours >= SCRAPER_EMERGENCY_THRESHOLD_HOURS) {
+        console.warn(
+          `🚨 EMERGENCY CATCH-UP: Last scrape was ${elapsedHours.toFixed(1)}h ago (>= ${SCRAPER_EMERGENCY_THRESHOLD_HOURS}h threshold). Executing catch-up cycle...`
+        );
+      }
+
       if (elapsedHours >= SCRAPER_STALE_THRESHOLD_HOURS) {
         console.warn(
           `🚨 WATCHDOG: Last scrape was ${elapsedHours.toFixed(1)}h ago (>= ${SCRAPER_STALE_THRESHOLD_HOURS}h threshold). Dispatching stale alert to ${getAdminEmail()}...`
         );
         await sendScraperStaleAlert({
           hoursSinceLastScrape: Math.round(elapsedHours * 10) / 10,
-          lastScrapedAt: new Date(lastScrape).toISOString(),
-          totalActiveProducts: 1,
+          lastScrapedAt: new Date(mostRecentTimestamp).toISOString(),
+          totalActiveProducts: latestProducts.length,
           to: getAdminEmail(),
         });
       }
@@ -223,6 +303,33 @@ async function main() {
             `\n[W${workerId} #${currentItemNumber}] Checking: ${product.title.slice(0, 40)}... (${product.platform})`
           );
 
+          // Check storefront circuit breaker before hitting domain
+          const circuit = checkPlatformCircuit(product.platform);
+          if (circuit.isTripped) {
+            console.warn(`  ⚡ Skipping [${product.platform.toUpperCase()}]: ${product.title.slice(0, 30)} - ${circuit.reason}`);
+            totalErrors++;
+            platformFailureCounts[product.platform] = (platformFailureCounts[product.platform] || 0) + 1;
+            aggregatedFailures.push({
+              title: product.title,
+              url: product.url,
+              platform: product.platform,
+              error: circuit.reason || 'Circuit breaker tripped',
+            });
+            if (runId) {
+              await supabase.from('scrape_run_items').insert({
+                run_id: runId,
+                product_id: product.id,
+                platform: product.platform,
+                status: 'error',
+                error: circuit.reason,
+                attempts: 0,
+                duration_ms: 0,
+                created_at: new Date().toISOString(),
+              });
+            }
+            continue;
+          }
+
           const itemStartTime = Date.now();
           const MAX_ATTEMPTS = 2;
           let scrapeRes: ScrapeResult | null = null;
@@ -256,6 +363,7 @@ async function main() {
 
           // Case A: Product Out of Stock
           if (scrapeRes && scrapeRes.isOutOfStock) {
+            recordPlatformCircuitSuccess(product.platform);
             totalOutOfStock++;
             console.log(`  📦 Product is Out of Stock: "${product.title.slice(0, 30)}"`);
             await supabase
@@ -288,6 +396,7 @@ async function main() {
           if (!scrapeRes || !scrapeRes.success || !scrapeRes.price || scrapeRes.price <= 0) {
             totalErrors++;
             const errorMessage = scrapeRes?.error || 'Failed to extract price after 2 attempts';
+            recordPlatformCircuitFailure(product.platform, errorMessage);
             console.warn(`  ⚠️ Scraping failed for "${product.title.slice(0, 30)}": ${errorMessage}`);
 
             platformFailureCounts[product.platform] = (platformFailureCounts[product.platform] || 0) + 1;
@@ -332,6 +441,7 @@ async function main() {
           if (!sanity.isValid) {
             totalErrors++;
             const sanityReason = `Sanity check: ${sanity.reason}`;
+            recordPlatformCircuitFailure(product.platform, sanityReason);
             console.warn(`  🛑 Sanity check failed for ${product.id}: ${sanityReason}`);
 
             platformFailureCounts[product.platform] = (platformFailureCounts[product.platform] || 0) + 1;
@@ -372,6 +482,7 @@ async function main() {
           }
 
           // Case D: Successful Price Extraction
+          recordPlatformCircuitSuccess(product.platform);
           totalSuccess++;
           const wasOutOfStock = product.check_status === 'out_of_stock';
           const isBackInStock = wasOutOfStock && newPrice > 0;
@@ -529,6 +640,18 @@ async function main() {
     await closeSharedBrowser();
   }
 
+  // 4.5 Process Pending Notification Outbox Queue (Delivery Assurance)
+  try {
+    const outboxResult = await processNotificationOutbox(supabase);
+    if (outboxResult.retried > 0) {
+      console.log(
+        `📬 Notification Outbox Assurance: ${outboxResult.retried} retried, ${outboxResult.recovered} recovered, ${outboxResult.abandoned} abandoned.`
+      );
+    }
+  } catch (err) {
+    console.warn('Notice processing notification outbox:', err);
+  }
+
   // 5. Consolidated Incident Notification (Aggregate Failures)
   if (aggregatedFailures.length > 0) {
     console.log(
@@ -558,6 +681,18 @@ async function main() {
         duration_ms: totalDurationMs,
       })
       .eq('id', runId);
+  }
+
+  // 7. Dead-Man's Switch Heartbeat Ping (if configured)
+  const healthcheckUrl = process.env.HEALTHCHECK_URL;
+  if (healthcheckUrl && totalSuccess > 0) {
+    try {
+      await fetch(healthcheckUrl, { method: 'POST', signal: AbortSignal.timeout(5000) });
+      console.log('📡 Healthcheck heartbeat pinged successfully.');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`⚠️ Healthcheck ping notice: ${msg}`);
+    }
   }
 
   const durationSec = Math.round(totalDurationMs / 1000);

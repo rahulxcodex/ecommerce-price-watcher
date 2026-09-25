@@ -16,6 +16,7 @@ import {
   User as UserIcon,
   Compass,
   Info,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -58,6 +59,12 @@ export function Navbar() {
       label: 'Extension',
       icon: Sparkles,
       desc: 'Browser companion for Chrome & Brave',
+    },
+    {
+      href: '/health',
+      label: 'Health',
+      icon: Activity,
+      desc: 'Pipeline telemetry & storefront status',
     },
     {
       href: '/about',

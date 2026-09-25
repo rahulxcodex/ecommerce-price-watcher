@@ -20,7 +20,12 @@ import {
 import { Product, Platform } from '@/types';
 import { ProductCard } from '@/components/product-card';
 import { useAuth } from '@/contexts/auth-context';
-import { SCRAPER_STALE_THRESHOLD_HOURS } from '@/lib/constants';
+import {
+  SCRAPER_STALE_THRESHOLD_HOURS,
+  SCRAPER_EMERGENCY_THRESHOLD_HOURS,
+  SCRAPER_CATCHUP_INTERVAL_MINUTES,
+  SCRAPER_CRON_INTERVAL_HOURS,
+} from '@/lib/constants';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -39,7 +44,7 @@ export default function DashboardPage() {
   const [isTriggeringScraper, setIsTriggeringScraper] = useState(false);
   const [triggerStatus, setTriggerStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const fetchProducts = async (signal?: AbortSignal) => {
+  const fetchProducts = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -54,7 +59,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -62,7 +67,7 @@ export default function DashboardPage() {
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [fetchProducts]);
 
   const isMineProduct = useCallback((p: Product) => {
     if (user?.name && p.created_by_name) {
@@ -119,7 +124,10 @@ export default function DashboardPage() {
   // Watchdog metric: updated to threshold from centralized constants
   const latestScrapeTime = useMemo(() => {
     const timestamps = products
-      .map((p) => (p.last_checked_at ? new Date(p.last_checked_at).getTime() : 0))
+      .map((p) => {
+        const t = p.last_successful_scrape_at || p.last_checked_at;
+        return t ? new Date(t).getTime() : 0;
+      })
       .filter((t) => t > 0);
     return timestamps.length > 0 ? Math.max(...timestamps) : null;
   }, [products]);
@@ -130,8 +138,9 @@ export default function DashboardPage() {
   }, [latestScrapeTime]);
 
   const isScraperStale = Boolean(elapsedHours !== null && elapsedHours >= SCRAPER_STALE_THRESHOLD_HOURS);
+  const isEmergencyStale = Boolean(elapsedHours !== null && elapsedHours >= SCRAPER_EMERGENCY_THRESHOLD_HOURS);
 
-  const handleManualScrapeTrigger = async () => {
+  const handleManualScrapeTrigger = useCallback(async () => {
     if (isTriggeringScraper) return;
     setIsTriggeringScraper(true);
     setTriggerStatus(null);
@@ -158,7 +167,20 @@ export default function DashboardPage() {
     } finally {
       setIsTriggeringScraper(false);
     }
-  };
+  }, [isTriggeringScraper, fetchProducts]);
+
+  // Integrity Fallback: If scraping has not succeeded for >= 6 hours, auto-trigger recovery with 15-minute cooldown
+  useEffect(() => {
+    if (!isEmergencyStale || isTriggeringScraper || products.length === 0) return;
+    const cooldownKey = 'scraper_auto_heal_timestamp';
+    const lastAutoHeal = parseInt(sessionStorage.getItem(cooldownKey) || '0', 10);
+    const fifteenMinutesMs = 15 * 60 * 1000;
+    if (Date.now() - lastAutoHeal < fifteenMinutesMs) {
+      return;
+    }
+    sessionStorage.setItem(cooldownKey, Date.now().toString());
+    handleManualScrapeTrigger();
+  }, [isEmergencyStale, isTriggeringScraper, products.length, handleManualScrapeTrigger]);
 
   const exportData = (format: 'csv' | 'json') => {
     if (products.length === 0) return;
@@ -275,12 +297,19 @@ export default function DashboardPage() {
                 {latestScrapeTime && (
                   <span
                     className={`text-[9px] font-mono px-2 py-0.5 rounded-sm inline-flex items-center gap-1 ${
-                      isScraperStale
+                      isEmergencyStale
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse'
+                        : isScraperStale
                         ? 'bg-terracotta/20 text-terracotta border border-terracotta/40'
                         : 'bg-sage/15 text-sage border border-sage/30'
                     }`}
                   >
-                    {isScraperStale ? (
+                    {isEmergencyStale ? (
+                      <>
+                        <AlertTriangle className="w-3 h-3 text-rose-400" />
+                        Catch-Up Active ({elapsedHours?.toFixed(1)}h ago)
+                      </>
+                    ) : isScraperStale ? (
                       <>
                         <AlertTriangle className="w-3 h-3 text-terracotta" />
                         Idle ({elapsedHours?.toFixed(1)}h ago)
@@ -385,14 +414,43 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Watchdog Stale Warning if scraping has not occurred for > 5.0 hours */}
-      {isScraperStale && (
+      {/* Watchdog Stale & Emergency Catch-Up Warning */}
+      {isEmergencyStale ? (
+        <div className="p-3 rounded-sm border border-rose-500/50 bg-rose-950/25 text-rose-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-rose-950/20">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 animate-pulse" />
+            <span>
+              <strong>🚨 Emergency Catch-Up Active:</strong> No successful scrape for{' '}
+              <strong>{elapsedHours?.toFixed(1)} hours</strong> (exceeded {SCRAPER_EMERGENCY_THRESHOLD_HOURS}h threshold).{' '}
+              {isTriggeringScraper ? (
+                <span className="text-gold font-semibold">Auto-recovery scrape running in background...</span>
+              ) : (
+                <span>Auto-retrying every <strong>{SCRAPER_CATCHUP_INTERVAL_MINUTES} minutes</strong> until successful.</span>
+              )}
+            </span>
+          </div>
+          <button
+            onClick={handleManualScrapeTrigger}
+            disabled={isTriggeringScraper}
+            className="px-3 py-1 rounded-sm bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs whitespace-nowrap transition-colors flex items-center justify-center gap-1.5"
+          >
+            {isTriggeringScraper ? (
+              <>
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                Recovering...
+              </>
+            ) : (
+              'Force Scrape Now'
+            )}
+          </button>
+        </div>
+      ) : isScraperStale ? (
         <div className="p-3 rounded-sm border border-terracotta/40 bg-terracotta/10 text-terracotta text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-terracotta flex-shrink-0" />
             <span>
               <strong>Scraper Notice:</strong> Last scheduled cycle occurred{' '}
-              <strong>{elapsedHours?.toFixed(1)} hours ago</strong> (Cycle: 4 hours).
+              <strong>{elapsedHours?.toFixed(1)} hours ago</strong> (Cycle: {SCRAPER_CRON_INTERVAL_HOURS} hours).
             </span>
           </div>
           <button
@@ -403,7 +461,7 @@ export default function DashboardPage() {
             {isTriggeringScraper ? 'Running...' : 'Run Scraper Now'}
           </button>
         </div>
-      )}
+      ) : null}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col gap-3">

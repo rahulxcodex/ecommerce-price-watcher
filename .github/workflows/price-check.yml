@@ -2,9 +2,15 @@ name: Automated Price Watcher Cron
 
 on:
   schedule:
-    # Runs every 4 hours: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
-    - cron: '0 */4 * * *'
-  workflow_dispatch: # Allows manual trigger from GitHub web UI
+    # High-frequency 30-minute schedule: supports 6-hour emergency catch-up and 4-hour cycle
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force run regardless of staleness'
+        required: false
+        default: 'false'
+        type: string
 
 concurrency:
   group: price-check-cron
@@ -25,10 +31,21 @@ jobs:
           node-version: 22
           cache: 'npm'
 
+      - name: Preflight Staleness & Emergency Catch-up Check
+        id: preflight
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          FORCE_RUN: ${{ github.event.inputs.force }}
+        run: node scripts/check-staleness.mjs
+
       - name: Install Dependencies
+        if: steps.preflight.outputs.should_run == 'true'
         run: npm ci --no-fund --no-audit
 
       - name: Cache Playwright Binaries
+        if: steps.preflight.outputs.should_run == 'true'
         uses: actions/cache@v4
         id: playwright-cache
         with:
@@ -36,10 +53,11 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: steps.preflight.outputs.should_run == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run Price Checker
+        if: steps.preflight.outputs.should_run == 'true'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -58,4 +76,16 @@ jobs:
           APPSCRIPT_TO_EMAIL: ${{ secrets.APPSCRIPT_TO_EMAIL }}
           SCRAPER_ALERT_EMAIL: ${{ secrets.SCRAPER_ALERT_EMAIL }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-        run: npm run scrape
+        run: |
+          echo "🚀 Executing price check cycle [Mode: ${{ steps.preflight.outputs.mode }}]..."
+          for attempt in 1 2; do
+            echo "Attempt $attempt of 2..."
+            if npm run scrape; then
+              echo "✅ Scraper run succeeded on attempt $attempt."
+              exit 0
+            fi
+            echo "⚠️ Attempt $attempt failed. Waiting 30s before retry..."
+            sleep 30
+          done
+          echo "❌ Scraper failed across all retry attempts."
+          exit 1
