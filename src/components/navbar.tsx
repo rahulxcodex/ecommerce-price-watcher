@@ -29,6 +29,8 @@ export function Navbar() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  const isUserAdmin = Boolean(user?.isCombined || user?.role === 'combined');
+
   const links = [
     {
       href: '/dashboard',
@@ -60,12 +62,16 @@ export function Navbar() {
       icon: Sparkles,
       desc: 'Browser companion for Chrome & Brave',
     },
-    {
-      href: '/health',
-      label: 'Health',
-      icon: Activity,
-      desc: 'Pipeline telemetry & storefront status',
-    },
+    ...(isUserAdmin
+      ? [
+          {
+            href: '/health',
+            label: 'Health',
+            icon: Activity,
+            desc: 'Pipeline telemetry & storefront status',
+          },
+        ]
+      : []),
     {
       href: '/about',
       label: 'About',

@@ -31,12 +31,22 @@ export async function GET(req: NextRequest) {
     const isApiKeyValid = Boolean(
       watchdogSecret && (authHeader === watchdogSecret || apiKeyParam === watchdogSecret)
     );
-    const isAuthorized = Boolean(session) || isApiKeyValid;
+
+    const adminEmail = getAdminEmail().toLowerCase().trim();
+    const isUserAdmin = Boolean(
+      session?.isCombined ||
+      session?.role === 'combined' ||
+      (session?.email && session.email.toLowerCase().trim() === adminEmail)
+    );
+    const isAuthorized = isUserAdmin || isApiKeyValid;
 
     if (!isAuthorized) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized: Authentication required to view scraper health telemetry.' },
-        { status: 401 }
+        {
+          success: false,
+          error: 'Forbidden: Access to system telemetry is restricted to the administrator.',
+        },
+        { status: session ? 403 : 401 }
       );
     }
 

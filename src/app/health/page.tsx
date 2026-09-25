@@ -14,7 +14,9 @@ import {
   Zap,
   Server,
   Layers,
+  Lock,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 import { PlatformBadge } from '@/components/platform-badge';
 import { Platform } from '@/types';
 
@@ -53,18 +55,22 @@ interface HealthData {
 }
 
 export default function ScraperHealthPage() {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const isUserAdmin = Boolean(user?.isCombined || user?.role === 'combined');
+
   const [data, setData] = useState<HealthData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchHealth = useCallback(async () => {
+    if (!isUserAdmin) return;
     try {
       setError(null);
       const res = await fetch('/api/scraper/health');
       if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error('Authentication required to view system health.');
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('Access restricted: System administrator privileges required.');
         }
         throw new Error('Failed to load health telemetry.');
       }
@@ -78,16 +84,43 @@ export default function ScraperHealthPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [isUserAdmin]);
 
   useEffect(() => {
-    fetchHealth();
-  }, [fetchHealth]);
+    if (!isAuthLoading && isUserAdmin) {
+      fetchHealth();
+    } else if (!isAuthLoading && !isUserAdmin) {
+      setIsLoading(false);
+    }
+  }, [isAuthLoading, isUserAdmin, fetchHealth]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchHealth();
   };
+
+  if (!isAuthLoading && !isUserAdmin) {
+    return (
+      <div className="max-w-md mx-auto py-24 px-4 text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-terracotta/10 border border-terracotta/30 flex items-center justify-center mx-auto text-terracotta">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h1 className="font-display text-2xl text-champagne">Restricted Space</h1>
+        <p className="text-xs font-mono text-champagne-faint leading-relaxed">
+          System telemetry and pipeline observability metrics are exclusively reserved for the system administrator.
+        </p>
+        <div className="pt-2">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm bg-surface hover:bg-surface-hover border border-surface-border text-xs font-mono text-gold transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Return to Watchlist</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto py-6 space-y-6">
