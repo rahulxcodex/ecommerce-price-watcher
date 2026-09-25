@@ -189,6 +189,50 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* About Us & Engineering Pedigree Showcase */}
+      <section className="max-w-5xl mx-auto bg-surface border border-surface-border p-6 sm:p-10 rounded-sm">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-surface-border">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-gold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>About Us &amp; Our Mission</span>
+            </div>
+            <h2 className="font-display text-2xl sm:text-3xl text-champagne">
+              Engineered for Pure Price Transparency
+            </h2>
+            <p className="text-xs sm:text-sm text-champagne-muted max-w-2xl leading-relaxed">
+              We build institutional-grade price intelligence without commercial bias, ads, or sponsored placements. Our mission is to restore pricing sanity across India&apos;s leading e-commerce platforms through data structures and automated monitoring.
+            </p>
+          </div>
+          <Link
+            href="/about"
+            className="flex items-center justify-center gap-2 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-5 py-2.5 rounded-sm text-xs sm:text-sm transition-colors whitespace-nowrap"
+          >
+            <span>Read Our Full Story</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 text-center">
+          <div>
+            <span className="font-display text-2xl sm:text-3xl text-gold font-normal block">6</span>
+            <span className="text-[11px] font-mono text-champagne-faint uppercase tracking-wider mt-1 block">Storefronts Tracked</span>
+          </div>
+          <div>
+            <span className="font-display text-2xl sm:text-3xl text-gold font-normal block">4h</span>
+            <span className="text-[11px] font-mono text-champagne-faint uppercase tracking-wider mt-1 block">Scheduled Cadence</span>
+          </div>
+          <div>
+            <span className="font-display text-2xl sm:text-3xl text-gold font-normal block">5</span>
+            <span className="text-[11px] font-mono text-champagne-faint uppercase tracking-wider mt-1 block">Alert Channels</span>
+          </div>
+          <div>
+            <span className="font-display text-2xl sm:text-3xl text-gold font-normal block">100%</span>
+            <span className="text-[11px] font-mono text-champagne-faint uppercase tracking-wider mt-1 block">Open Integrity</span>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

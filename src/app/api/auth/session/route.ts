@@ -20,18 +20,17 @@ export async function GET(req: NextRequest) {
     const dbUser = await getUserById(payload.userId);
 
     if (dbUser) {
-      // Authoritative DB state always wins over signed payload claims
+      // Authoritative DB state with dynamic role and email fallback from verified token
+      const effectiveEmail = dbUser.email || payload.email;
+      const { isCombined, role } = resolveUserRole(dbUser.name || payload.name, effectiveEmail);
+      dbUser.email = effectiveEmail;
+      dbUser.isCombined = isCombined;
+      dbUser.role = role;
       return NextResponse.json({ user: dbUser });
     }
 
-    // If user no longer exists in database on serverless production, reject stale session
-    if (isServerlessProduction()) {
-      const res = NextResponse.json({ user: null });
-      res.cookies.delete(AUTH_COOKIE_NAME);
-      return res;
-    }
-
-    // Non-production local dev fallback
+    // Gracefully fall back to cryptographically verified session token claims
+    // (Prevents session loss and Scrape All button vanishing during transient DB cold-starts)
     const resolved = resolveUserRole(payload.name, payload.email);
     return NextResponse.json({
       user: {

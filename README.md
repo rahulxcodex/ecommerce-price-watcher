@@ -1,60 +1,65 @@
-# 🏷️ E-Commerce Price Watcher
+# 🏷️ E-Commerce Price Watcher & Market Intelligence
 
-An automated, multi-platform product price tracking web application for **Amazon India**, **Flipkart**, **Meesho**, **Myntra**, **Ajio**, and **Westside**. Paste any product link, view price trends over time, and receive instant Telegram alerts whenever an item hits its **all-time lowest price**.
+[![CI Quality Gates](https://github.com/rahulxcodex/ecommerce-price-watcher/actions/workflows/ci.yml/badge.svg)](https://github.com/rahulxcodex/ecommerce-price-watcher/actions/workflows/ci.yml)
+[![Price Watcher Cron](https://github.com/rahulxcodex/ecommerce-price-watcher/actions/workflows/price-check.yml/badge.svg)](https://github.com/rahulxcodex/ecommerce-price-watcher/actions/workflows/price-check.yml)
+[![Node.js 22 LTS](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Next.js 14](https://img.shields.io/badge/next.js-14.2-black.svg)](https://nextjs.org/)
+[![Supabase](https://img.shields.io/badge/database-Supabase%20PostgreSQL-3ECF8E.svg)](https://supabase.com/)
 
-Deployed **100% free** on Vercel, Supabase, GitHub Actions, and Telegram Bot API.
+An institutional-grade, automated multi-platform e-commerce price tracking and market intelligence platform for **Amazon India**, **Flipkart**, **Meesho**, **Myntra**, **Ajio**, and **Westside**. Track any product URL, explore dynamic discovery catalogs with smart facet filtering, view historical price trajectories, and receive instant alerts whenever prices hit an **all-time low**.
+
+Deployed **100% free** on Vercel, Supabase, GitHub Actions, and multi-channel notification gateways.
 
 ---
 
-## 🚀 Free-Tier Architecture
+## 🏛️ System Architecture
 
 ```
-[ Next.js 14 Web App ] (Vercel Free Tier)
+[ Next.js 14 Web App ] (Vercel Free Tier - Obsidian & Champagne Design)
+         │
+         ├──► [ Discovery & Search Engine ] (Live Storefront Scrapers + Smart Filters)
          │
          ▼
-[ Supabase PostgreSQL ] (Free 500MB DB with RLS Security)
+[ Supabase PostgreSQL ] (Free Tier with Row-Level Security & 11 Migrations)
          ▲
          │
-[ GitHub Actions Cron ] (Runs every 4 hours on free Linux runners)
+[ GitHub Actions Cron ] (Runs every 4 hours on Node.js 22 LTS runners)
          │  Scrapes Amazon, Flipkart, Meesho, Myntra, Ajio, Westside
          ▼
-[ Telegram Bot Alerts ] (100% Free, Unlimited Instant Push Notifications)
+[ 5-Channel Dispatcher ]
+   ├── Telegram Bot API (Instant Push)
+   ├── WhatsApp (CallMeBot Gateway)
+   ├── Discord Webhook (Rich Embeds)
+   ├── ntfy.sh (Open-source Push Notifications)
+   └── Email (Google Apps Script / Gmail API)
 ```
 
 ---
 
-## 🔒 Built-in Security Architecture
+## ⚡ Core Capabilities
 
-1. **SSRF (Server-Side Request Forgery) Defense**:
-   - Strict hostname regex whitelisting (`amazon.in`, `flipkart.com`, `meesho.com`, `myntra.com`, `ajio.com`, `westside.com`).
-   - Rejection of private IPv4/IPv6 ranges (RFC 1918, RFC 3927), localhost, loopback (`127.0.0.1`), and cloud metadata IP endpoints (`169.254.169.254`).
-   - Automatic stripping of affiliate and tracking parameters.
-
-2. **Price Anomaly & Anti-Hallucination Guards**:
-   - Rejection of negative or zero values.
-   - Upper bound constraints and detection of abnormal >98% price collapses caused by DOM selector mismatch or shipping badge mixups.
-
-3. **Database Row-Level Security (RLS)**:
-   - Supabase RLS policies enforce that users can strictly read, update, and delete only products they track.
-   - DoS guard: Maximum 50 products per account limit enforced at PostgreSQL policy level.
-
-4. **Webhook Timing-Attack Resistance**:
-   - Telegram webhook validation uses constant-time string comparison (`safeCompare`).
-
-5. **Secret Isolation**:
-   - `SUPABASE_SERVICE_ROLE_KEY` is strictly reserved for the background scraper and never exposed to the frontend bundle.
+- **Multi-Storefront Support**: Real-time extraction across Amazon India, Flipkart, Meesho, Myntra, Ajio, and Westside.
+- **Product Discovery Engine (`/discover`)**: Search 10–25 candidate products across storefronts, dynamically scrape additional SKUs on facet filtering, and bulk-monitor up to 15 items in a single click.
+- **Mathematical Decision Science**:
+  - **Monotonic Deque $O(N)$ Sliding Window**: Real-time 7-day and 30-day rolling price minimums.
+  - **Ordinary Least Squares (OLS) Linear Regression**: Price trajectory and velocity forecasting.
+  - **Pareto Frontier Optimization**: Multi-objective non-dominated deal identification (Price vs. Rating vs. Discount).
+  - **Shannon Entropy Ranking**: Optimal facet partitioning for smart search navigation.
+  - **Optimal Stopping (Secretary Problem)**: 1/e statistical confidence scoring for buy vs. wait decisions.
+- **5-Channel Alert Dispatcher**: Immediate delivery across Telegram, WhatsApp, Discord, ntfy.sh, and Email.
+- **Defensive Engineering**: SSRF defense with private IP / cloud metadata blocking, constant-time HMAC-SHA256 session auth, PostgreSQL Row-Level Security (RLS), and in-memory rate limiting.
+- **Chrome Extension (Manifest V3)**: Pure-JS packaged companion extension for 1-click tracking directly from product pages.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS with dark slate theme
-- **Database**: Supabase PostgreSQL with Row Level Security
-- **Scraper Engine**: 5-Tier Resilient Architecture (JSON-LD Schema.org + Platform Native APIs/Hydration State + OpenGraph Meta Tags + Multi-Selector Fallback + Headless Playwright Chromium)
-- **Automation**: GitHub Actions Cron (`0 */6 * * *`)
-- **Notifications**: Telegram Bot API
-- **Charts**: Recharts responsive SVG line charts
+- **Framework**: Next.js 14 App Router (React 18, TypeScript 5)
+- **Design System**: Obsidian & Champagne Luxury Editorial (Instrument Serif + Satoshi typography, Tailwind CSS)
+- **Database**: Supabase PostgreSQL with strict Row Level Security (RLS)
+- **Scraper Engine**: 5-Tier Resilient Architecture (JSON-LD + Native Hydration States + OpenGraph Meta + Cheerio Fallbacks + Headless Chromium with Jitter)
+- **Automation**: GitHub Actions Cron (`0 */4 * * *`) with 5-Hour Watchdog Monitor
+- **Testing**: 7 comprehensive test suites covering SSRF defense, DSA algorithms, ecommerce URL patterns, smart filtering, and hardening audits.
 
 ---
 
@@ -62,24 +67,29 @@ Deployed **100% free** on Vercel, Supabase, GitHub Actions, and Telegram Bot API
 
 ### 1. Clone & Install
 ```bash
-git clone <your-repo-url>
-cd "Ecommerce tracker"
+git clone https://github.com/rahulxcodex/ecommerce-price-watcher.git
+cd ecommerce-price-watcher
 npm install
 ```
 
-### 2. Environment Variables
-Copy `.env.example` to `.env.local` and add your keys:
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env.local` and add your credentials:
 ```bash
+cp .env.example .env.local
+```
+
+Required variables:
+```ini
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+AUTH_SECRET=generate-a-strong-random-secret-at-least-32-chars-long
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### 3. Database Migration
-Run the SQL script located at:
-`supabase/migrations/001_initial_schema.sql`
-inside your Supabase SQL Editor.
+### 3. Database Setup
+Apply all migrations sequentially from `supabase/migrations/` in your Supabase SQL Editor:
+- `001_initial_schema.sql` through `011_production_ready_hardening.sql`.
 
 ### 4. Run Development Server
 ```bash
@@ -87,21 +97,53 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 5. Run Scraper Manually
+### 5. Run Verification & Test Suite
+```bash
+npm run typecheck
+npm run lint
+npm test
+```
+
+### 6. Run Scraper Manually
 ```bash
 npm run scrape
 ```
 
 ---
 
-## 🌐 1-Click Free Deployment
+## 🌐 Production Deployment
 
-1. **Database**: Create a free project on [Supabase](https://supabase.com) and paste `supabase/migrations/001_initial_schema.sql` into the SQL Editor.
-2. **Frontend**: Push repository to GitHub, connect to [Vercel](https://vercel.com), and deploy.
-3. **Automated Cron**: In your GitHub repository **Settings** > **Secrets and variables** > **Actions**, add:
+### 1. Vercel Deployment
+1. Connect your GitHub repository to [Vercel](https://vercel.com).
+2. Configure Environment Variables:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
-   - `TELEGRAM_BOT_TOKEN`
+   - `AUTH_SECRET`
+   - `NEXT_PUBLIC_APP_URL`
+3. Deploy to production.
 
-The GitHub Actions workflow `.github/workflows/price-check.yml` will automatically check prices every 4 hours and ping your Telegram on price drops.
+### 2. GitHub Actions Automated Cron
+In your GitHub repository **Settings** > **Secrets and variables** > **Actions**, add:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `TELEGRAM_BOT_TOKEN` (optional, for alerts)
+
+The workflow `.github/workflows/price-check.yml` executes automatically every 4 hours (`0 */4 * * *`).
+
+---
+
+## 📖 Documentation
+
+- [About Us & Architectural Memo](docs/ABOUT.md)
+- [Telegram Bot Alert Setup Guide](docs/telegram-setup.md)
+- [Google Apps Script Email Alert Setup](docs/appscript-email-setup.md)
+- [Chrome Extension Documentation](extension/README.md)
+- [Database Migrations Log](supabase/MIGRATION_README.md)
+
+---
+
+## 📄 License
+
+MIT License. Crafted with mathematical precision for e-commerce price transparency.

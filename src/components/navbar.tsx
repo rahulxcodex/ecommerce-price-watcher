@@ -15,6 +15,7 @@ import {
   Crown,
   User as UserIcon,
   Compass,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -57,6 +58,12 @@ export function Navbar() {
       label: 'Extension',
       icon: Sparkles,
       desc: 'Browser companion for Chrome & Brave',
+    },
+    {
+      href: '/about',
+      label: 'About',
+      icon: Info,
+      desc: 'Decision science & engineering',
     },
   ];
 

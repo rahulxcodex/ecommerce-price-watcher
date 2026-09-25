@@ -20,6 +20,7 @@ import {
 import { Product, Platform } from '@/types';
 import { ProductCard } from '@/components/product-card';
 import { useAuth } from '@/contexts/auth-context';
+import { SCRAPER_STALE_THRESHOLD_HOURS } from '@/lib/constants';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -115,7 +116,7 @@ export default function DashboardPage() {
     return products.filter((p) => !isMineProduct(p)).length;
   }, [products, isMineProduct]);
 
-  // Watchdog metric: updated to 5.0h threshold for 4-hour cron schedule
+  // Watchdog metric: updated to threshold from centralized constants
   const latestScrapeTime = useMemo(() => {
     const timestamps = products
       .map((p) => (p.last_checked_at ? new Date(p.last_checked_at).getTime() : 0))
@@ -128,7 +129,7 @@ export default function DashboardPage() {
     return (Date.now() - latestScrapeTime) / (1000 * 60 * 60);
   }, [latestScrapeTime]);
 
-  const isScraperStale = Boolean(elapsedHours !== null && elapsedHours >= 5.0);
+  const isScraperStale = Boolean(elapsedHours !== null && elapsedHours >= SCRAPER_STALE_THRESHOLD_HOURS);
 
   const handleManualScrapeTrigger = async () => {
     if (isTriggeringScraper) return;
@@ -234,6 +235,18 @@ export default function DashboardPage() {
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
 
+          {user?.isCombined && (
+            <button
+              onClick={handleManualScrapeTrigger}
+              disabled={isTriggeringScraper || products.length === 0}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-gold hover:bg-gold-hover text-obsidian rounded-sm text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer shadow-sm whitespace-nowrap"
+              title="Scrape and verify live prices for all active products across all 6 storefronts"
+            >
+              <Zap className={`w-3.5 h-3.5 ${isTriggeringScraper ? 'animate-spin' : ''}`} />
+              <span>{isTriggeringScraper ? 'Scraping All...' : 'Scrape All'}</span>
+            </button>
+          )}
+
           <Link
             href="/add"
             className="flex items-center justify-center gap-1.5 bg-surface-subtle hover:bg-surface-hover border border-surface-border text-champagne px-3 py-2 rounded-sm text-xs transition-colors whitespace-nowrap"
@@ -295,7 +308,7 @@ export default function DashboardPage() {
               title="Manually trigger immediate price scrape across active products"
             >
               <Zap className={`w-3.5 h-3.5 ${isTriggeringScraper ? 'animate-spin' : ''}`} />
-              <span>{isTriggeringScraper ? 'Checking...' : 'Run Scraper Now'}</span>
+              <span>{isTriggeringScraper ? 'Scraping All...' : 'Scrape All Products'}</span>
             </button>
 
             {/* Filter between Mine & Others */}

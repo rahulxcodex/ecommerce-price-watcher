@@ -20,18 +20,23 @@ function getDb() {
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Identify client for rate limiting
+    // 1. Parse request body
+    const body = await req.json().catch(() => ({}));
+    const { platform, query, limit = 15, brand, isFilterExpansion = false } = body;
+
+    // 2. Identify client for rate limiting (higher limit for filter expansions & authenticated users)
     const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
     const session = verifySessionToken(token || '');
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
     const rateLimitKey = session?.userId || session?.name || clientIp;
 
-    const rateLimitResult = await checkRateLimit(`search:${rateLimitKey}`, 5, 60);
+    const maxRateRequests = isFilterExpansion || session ? 30 : 10;
+    const rateLimitResult = await checkRateLimit(`search:${rateLimitKey}`, maxRateRequests, 60);
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         {
           success: false,
-          error: `Rate limit reached. Max 5 searches per minute. Please wait ${rateLimitResult.retryAfterSeconds} seconds.`,
+          error: `Rate limit reached. Max ${maxRateRequests} searches per minute. Please wait ${rateLimitResult.retryAfterSeconds} seconds.`,
           retryAfter: rateLimitResult.retryAfterSeconds,
         },
         {
@@ -42,10 +47,6 @@ export async function POST(req: NextRequest) {
         }
       );
     }
-
-    // 2. Parse request body
-    const body = await req.json().catch(() => ({}));
-    const { platform, query, limit = 15 } = body;
 
     if (!platform || !VALID_PLATFORMS.includes(platform as Platform)) {
       return NextResponse.json(
@@ -63,8 +64,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Execute Platform Search Scraper
-    const boundedLimit = Math.min(15, Math.max(5, Number(limit) || 15));
-    const results = await searchPlatform(platform as Platform, cleanQuery, boundedLimit);
+    // When filtering, dynamically scrape more SKUs by targeting brand query expansion
+    const cleanBrand = typeof brand === 'string' ? brand.trim() : '';
+    const targetedQuery = cleanBrand && !cleanQuery.toLowerCase().includes(cleanBrand.toLowerCase())
+      ? `${cleanBrand} ${cleanQuery}`
+      : cleanQuery;
+
+    const boundedLimit = Math.min(25, Math.max(5, Number(limit) || 15));
+    const results = await searchPlatform(platform as Platform, targetedQuery, boundedLimit);
 
     // 4. Cross-reference with existing watchlist
     const db = getDb();
@@ -137,17 +144,19 @@ export async function POST(req: NextRequest) {
     // 6. Rank facets by Shannon Information Gain
     const facetRanking = rankFilterFacets(results);
 
-    // 7. Save search query into search_history
-    try {
-      await db.from('search_history').insert({
-        user_id: session?.userId || null,
-        created_by_name: session?.name || null,
-        platform,
-        query: cleanQuery,
-        result_count: results.length,
-      });
-    } catch (histErr) {
-      console.warn('Failed to insert into search_history:', histErr);
+    // 7. Save search query into search_history (only for primary searches, not filter expansions)
+    if (!isFilterExpansion) {
+      try {
+        await db.from('search_history').insert({
+          user_id: session?.userId || null,
+          created_by_name: session?.name || null,
+          platform,
+          query: cleanQuery,
+          result_count: results.length,
+        });
+      } catch (histErr) {
+        console.warn('Failed to insert into search_history:', histErr);
+      }
     }
 
     return NextResponse.json({
