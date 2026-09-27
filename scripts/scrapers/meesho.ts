@@ -4,7 +4,7 @@ import { ScrapeResult } from '../../src/types';
 import { extractJsonLdProduct, extractMetaTags } from './resilient-extractor';
 
 export async function scrapeMeesho(url: string): Promise<ScrapeResult> {
-  const headerOptions = [
+  const headerOptions: Array<{ name: string; headers: Record<string, string> }> = [
     {
       name: 'Android Mobile (Akamai Bypass)',
       headers: {

@@ -188,7 +188,7 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
   }
 
   // Multi-Strategy HTTP Pipeline with Akamai Bot Manager Bypass Headers
-  const headerStrategies = [
+  const headerStrategies: Array<{ name: string; headers: Record<string, string> }> = [
     {
       name: 'Mobile Browser (Akamai Datacenter Bypass)',
       headers: {
