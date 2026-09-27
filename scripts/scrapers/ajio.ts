@@ -32,6 +32,7 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
           'Accept': 'application/json',
           'Referer': 'https://www.ajio.com/',
         },
+        signal: AbortSignal.timeout(7000),
       });
 
       if (searchRes.ok) {
@@ -51,10 +52,12 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
             const brand = matched.fnlColorVariantData?.brandName ? `${matched.fnlColorVariantData.brandName} ` : '';
             const name = matched.name || 'Ajio Product';
             const title = name.toLowerCase().startsWith(brand.toLowerCase().trim()) ? name : `${brand}${name}`;
-            const imageUrl =
-              matched.images?.[0]?.url ||
+            const rawImg =
+              (matched.images && typeof matched.images === 'object' && !Array.isArray(matched.images) ? matched.images.url : null) ||
+              (Array.isArray(matched.images) ? matched.images[0]?.url : null) ||
               matched.fnlColorVariantData?.outfitPictureURL ||
               undefined;
+            const imageUrl = rawImg?.startsWith('http') ? rawImg : rawImg ? `https://assets.ajio.com${rawImg}` : undefined;
             const isOutOfStock =
               matched.fnlColorVariantData?.outOfStock === true ||
               matched.fnlColorVariantData?.maxQuantity === 0;
@@ -85,6 +88,7 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
           'Accept': 'application/json',
           'Referer': 'https://www.ajio.com/',
         },
+        signal: AbortSignal.timeout(6000),
       });
       if (apiRes.ok) {
         const apiData = await apiRes.json();
@@ -93,9 +97,11 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
           const title = apiData.name || apiData.baseOptions?.[0]?.options?.[0]?.modelImage?.altText || 'Ajio Product';
           const brand = apiData.brandName ? `${apiData.brandName} ` : '';
           const fullTitle = title.startsWith(brand) ? title : `${brand}${title}`;
-          const imageUrl =
-            apiData.images?.[0]?.url ||
+          const rawImg =
+            (apiData.images && typeof apiData.images === 'object' && !Array.isArray(apiData.images) ? apiData.images.url : null) ||
+            (Array.isArray(apiData.images) ? apiData.images[0]?.url : null) ||
             apiData.baseOptions?.[0]?.options?.[0]?.modelImage?.url;
+          const imageUrl = rawImg?.startsWith('http') ? rawImg : rawImg ? `https://assets.ajio.com${rawImg}` : undefined;
           const isOutOfStock = apiData.stock?.stockLevelStatus === 'outOfStock';
 
           if (price && Number(price) > 0) {
@@ -172,6 +178,24 @@ export async function scrapeAjio(url: string): Promise<ScrapeResult> {
           imageUrl: meta.imageUrl,
           currency: 'INR',
         };
+      }
+
+      // Check Tier 3B: Regex in meta descriptions
+      for (const sel of ['meta[property="product:price:amount"]', 'meta[property="og:description"]', 'meta[name="description"]']) {
+        const val = $(sel).attr('content') || '';
+        const m = val.match(/(?:at\s*Rs\.?|₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
+        if (m && m[1]) {
+          const p = parsePrice(m[1]);
+          if (p && p > 0) {
+            return {
+              success: true,
+              title: $('meta[property="og:title"]').attr('content') || meta.title || 'Ajio Product',
+              price: p,
+              imageUrl: $('meta[property="og:image"]').attr('content') || meta.imageUrl,
+              currency: 'INR',
+            };
+          }
+        }
       }
 
       // Check Tier 4: Fallback DOM selectors

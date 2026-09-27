@@ -98,10 +98,88 @@ export async function scrapeFlipkart(url: string): Promise<ScrapeResult> {
       }
     }
   } catch (err: unknown) {
-    console.warn('Flipkart HTTP fast-path failed, trying Playwright fallback:', err);
+    // Fall through to Strategy 2 (Flipkart Search)
   }
 
-  // Strategy 2: Headless Playwright Browser Fallback (only if browser binaries are installed)
+  // Strategy 2: Flipkart Search Fallback by URL Slug / Item ID
+  // Flipkart's search endpoint is completely unblocked by Akamai and returns full price, title & image
+  try {
+    const slugMatch = url.match(/flipkart\.com\/([^/]+)\/p\/([^?]+)/);
+    const rawSlug = slugMatch ? slugMatch[1] : '';
+    const itemId = slugMatch ? slugMatch[2] : '';
+    const searchWords = decodeURIComponent(rawSlug).replace(/[-_]+/g, ' ').trim();
+
+    if (searchWords || itemId) {
+      const searchUrl = `https://www.flipkart.com/search?q=${encodeURIComponent(searchWords || itemId)}`;
+      const sRes = await fetch(searchUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-IN,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (sRes.ok) {
+        const sHtml = await sRes.text();
+        const $s = cheerio.load(sHtml);
+
+        let bestResult: ScrapeResult | null = null;
+        let fallbackResult: ScrapeResult | null = null;
+
+        $s('div[data-id]').each((_, el) => {
+          const card = $s(el);
+          const link = card.find('a[href*="/p/"]').first().attr('href') || '';
+          const isExactMatch = Boolean(itemId && link.includes(itemId));
+
+          let price: number | null = null;
+          const priceText = card.find('div.hZ3P6w, div.Nx9bqj, div._30jeq3, div._16Jk6d').first().text();
+          price = parsePrice(priceText);
+
+          if (!price) {
+            card.find('*:contains("₹")').each((_, pEl) => {
+              if (price) return;
+              if ($s(pEl).children().length === 0) {
+                const p = parsePrice($s(pEl).text());
+                if (p && p >= 20) price = p;
+              }
+            });
+          }
+
+          if (!price || price <= 0) return;
+
+          const title =
+            card.find('img[alt]').first().attr('alt') ||
+            card.find('div.KzDlHZ, div._4rR01T, a.s1Q9rs, div._2WkVRV').first().text() ||
+            searchWords;
+
+          const imageUrl = card.find('img').first().attr('src');
+
+          const candidate: ScrapeResult = {
+            success: true,
+            title: title.trim(),
+            price,
+            imageUrl,
+            currency: 'INR',
+          };
+
+          if (isExactMatch && !bestResult) {
+            bestResult = candidate;
+          } else if (!fallbackResult) {
+            fallbackResult = candidate;
+          }
+        });
+
+        if (bestResult) return bestResult;
+        if (fallbackResult) return fallbackResult;
+      }
+    }
+  } catch {
+    // Fall through to Strategy 3 (Playwright fallback)
+  }
+
+  // Strategy 3: Headless Playwright Browser Fallback (only if browser binaries are installed)
   if (!isPlaywrightAvailable()) {
     return {
       success: false,

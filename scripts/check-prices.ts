@@ -366,16 +366,20 @@ async function main() {
             recordPlatformCircuitSuccess(product.platform);
             totalOutOfStock++;
             console.log(`  📦 Product is Out of Stock: "${product.title.slice(0, 30)}"`);
+            const updateFields: Record<string, unknown> = {
+              check_status: 'out_of_stock',
+              error_message: null,
+              last_attempted_at: nowIso,
+              last_successful_scrape_at: nowIso,
+              last_checked_at: nowIso,
+              version: (product.version || 1) + 1,
+            };
+            if (scrapeRes.price && scrapeRes.price > 0) {
+              updateFields.current_price = scrapeRes.price;
+            }
             await supabase
               .from('products')
-              .update({
-                check_status: 'out_of_stock',
-                error_message: null,
-                last_attempted_at: nowIso,
-                last_successful_scrape_at: nowIso,
-                last_checked_at: nowIso,
-                version: (product.version || 1) + 1,
-              })
+              .update(updateFields)
               .eq('id', product.id);
 
             if (runId) {
